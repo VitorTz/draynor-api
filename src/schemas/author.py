@@ -20,6 +20,7 @@ class AuthorWithRole(BaseModel):
 
 class MangaAuthor(BaseModel):
 
+    author_name: str
     author_id: int
     manga_id: int
     role: Literal['Author', 'Artist']
@@ -54,4 +55,4 @@ class MangaAuthorDelete(BaseModel):
 class MangaAuthorList(BaseModel):
 
     manga_id: int
-    authors: List[AuthorWithRole]
+    authors: List[MangaAuthor]

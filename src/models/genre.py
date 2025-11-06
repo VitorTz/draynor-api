@@ -3,28 +3,54 @@ from src.schemas.general import Pagination, IntId
 from asyncpg import Connection
 from src.db import db_count
 from src.exceptions import DatabaseError
+from typing import Optional
 
 
-async def get_genres(limit: int, offset: int, conn: Connection) -> Pagination[Genre]:
-    total = await db_count("genres", conn)
-    rows = await conn.fetch(
-        """
-            SELECT
-                id,
-                genre,
-                created_at
-            FROM
-                genres
-            ORDER BY
-                genre ASC
-            LIMIT 
-                $1
-            OFFSET
-                $2
-        """,
-        limit,
-        offset
-    )
+async def get_genres(limit: int, offset: int, conn: Connection, genre_name: Optional[str] = None) -> Pagination[Genre]:
+    if genre_name:
+        total = await conn.fetchval("SELECT COUNT(*) FROM genres WHERE genre = $1", genre_name)
+        rows = await conn.fetch(
+            """
+                SELECT
+                    id,
+                    genre,
+                    created_at
+                FROM
+                    genres
+                WHERE
+                    genre = $1
+                ORDER BY
+                    genre ASC
+                LIMIT 
+                    $2
+                OFFSET
+                    $3
+            """,
+            genre_name,
+            limit,
+            offset
+        )
+    else:
+        total = await db_count("genres", conn)
+        rows = await conn.fetch(
+            """
+                SELECT
+                    id,
+                    genre,
+                    created_at
+                FROM
+                    genres
+                ORDER BY
+                    genre ASC
+                LIMIT 
+                    $1
+                OFFSET
+                    $2
+            """,
+            limit,
+            offset
+        )
+
 
     return Pagination(
         total=total,
@@ -84,7 +110,7 @@ async def delete_genre(genre: IntId, conn: Connection) -> None:
     )
 
 
-async def create_manga_genre(manga_genre: MangaGenreCreate, conn: Connection) -> MangaGenre:
+async def create_manga_genre(manga_genre: MangaGenreCreate, conn: Connection) -> None:
     r = await conn.fetchval("SELECT id FROM mangas WHERE id = $1", manga_genre.manga_id)
     if not r:
         raise DatabaseError(
@@ -113,9 +139,9 @@ async def get_manga_genres(manga: IntId, conn: Connection) -> MangaGenreList:
     rows = await conn.fetch(
         """
             SELECT
-                genre.id,
-                genre.genre,
-                genre.created_at
+                genres.id,
+                genres.genre,
+                genres.created_at
             FROM
                 genres
             JOIN
@@ -133,7 +159,36 @@ async def get_manga_genres(manga: IntId, conn: Connection) -> MangaGenreList:
     )
 
 
-async def delete_manga_genre(manga_genre: MangaGenreCreate, conn: Connection) -> None:
+async def get_manga_genres_pagination(limit: int, offset: int, conn: Connection) -> Pagination[MangaGenre]:
+    total: int = await db_count('manga_genres', conn)
+    rows = await conn.fetch(
+        """
+            SELECT
+                mg.genre_id,
+                mg.manga_id
+            FROM
+                manga_genres mg
+            ORDER BY
+                mg.manga_id ASC,
+                mg.genre_id ASC
+            LIMIT
+                $1
+            OFFSET
+                $2
+        """,
+        limit,
+        offset
+    )
+
+    return Pagination(
+        total=total,
+        limit=limit,
+        offset=offset,
+        results=[MangaGenre(**dict(row)) for row in rows]
+    )
+
+
+async def delete_manga_genre(manga_genre: MangaGenre, conn: Connection) -> None:
     await conn.execute(
         """
             DELETE FROM

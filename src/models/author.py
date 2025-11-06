@@ -1,30 +1,69 @@
-from src.schemas.author import Author, AuthorCreate, AuthorUpdate, MangaAuthorList, AuthorWithRole, MangaAuthorDelete, MangaAuthorCreate, MangaAuthor
+from src.schemas.author import (
+    Author, 
+    AuthorCreate, 
+    AuthorUpdate, 
+    MangaAuthorList, 
+    MangaAuthorDelete, 
+    MangaAuthorCreate, 
+    MangaAuthor
+)
 from asyncpg import Connection
 from src.schemas.general import Pagination, IntId
 from src.exceptions import DatabaseError
 from src.db import db_count
+from typing import Optional
 
 
-async def get_authors(limit: int, offset: int, conn: Connection) -> Pagination[Author]:
-    total = await db_count("authors", conn)
-    rows = await conn.fetch(
-        """
-            SELECT
-                id,
-                name,
-                created_at     
-            FROM
-                authors
-            ORDER BY
-                name ASC
-            LIMIT
-                $1
-            OFFSET
-                $2
-        """,
-        limit,
-        offset
-    )
+async def get_authors(
+    limit: int, 
+    offset: int, 
+    conn: Connection,
+    author_name: Optional[str] = None
+) -> Pagination[Author]:
+    if author_name:
+        total = await conn.fetchval("SELECT COUNT(*) FROM authors WHERE name = $1", author_name)
+        rows = await conn.fetch(
+            """
+                SELECT
+                    id,
+                    name,
+                    created_at
+                FROM
+                    authors
+                WHERE
+                    name = $1
+                ORDER BY
+                    name ASC
+                LIMIT
+                    $2
+                OFFSET
+                    $3
+            """,
+            author_name,
+            limit,
+            offset
+        )
+    else:
+        total = await db_count("authors", conn)
+        rows = await conn.fetch(
+            """
+                SELECT
+                    id,
+                    name,
+                    created_at
+                FROM
+                    authors
+                ORDER BY
+                    name ASC
+                LIMIT
+                    $1
+                OFFSET
+                    $2
+            """,
+            limit,
+            offset
+        )
+        
     
     return Pagination(
         total=total,
@@ -39,12 +78,14 @@ async def get_manga_authors_pagination(limit: int, offset: int, conn: Connection
     rows = await conn.fetch(
         """
             SELECT
+                authors.name as author_name,
                 author_id,
                 manga_id,
-                role,
-                created_at
+                role                
             FROM
                 manga_authors
+            JOIN
+                authors ON authors.id = manga_authors.author_id
             ORDER BY
                 author_id ASC
             LIMIT
@@ -67,9 +108,9 @@ async def get_manga_authors(manga: IntId, conn: Connection) -> MangaAuthorList:
     rows = await conn.fetch(
         """
         SELECT
-            a.id,
-            a.name,
-            a.created_at,
+            a.id as author_id,
+            a.name as author_name,
+            ma.manga_id,
             ma.role
         FROM
             authors a
@@ -86,7 +127,7 @@ async def get_manga_authors(manga: IntId, conn: Connection) -> MangaAuthorList:
 
     return MangaAuthorList(
         manga_id=manga.id,
-        authors=[AuthorWithRole(**dict(row)) for row in rows]
+        authors=[MangaAuthor(**dict(row)) for row in rows]
     )
 
 
@@ -176,7 +217,7 @@ async def create_manga_author(author: MangaAuthorCreate, conn: Connection) -> No
                 role
             )
             VALUES
-                ($1, $2, TRIM($3))
+                ($1, $2, TRIM($3)::author_role_enum)
             ON CONFLICT
                 (author_id, manga_id, role)
             DO NOTHING

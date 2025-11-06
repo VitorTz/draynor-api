@@ -15,10 +15,11 @@ router = APIRouter(dependencies=[Depends(require_admin)])
 async def get_mangas(
     limit: int = Query(default=64, ge=0, le=64),
     offset: int = Query(default=0, ge=0),
+    q: Optional[str] = Query(default=None, description="Permite buscar por um manga pelo título"),
+    title: Optional[str] = Query(default=None, description='Busca pelo titulo exato'),
     conn: Connection = Depends(get_db)
 ):
-    return await manga_model.get_mangas(limit, offset, conn)
-
+    return await manga_model.get_mangas(limit, offset, conn, q, title)
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Manga)
 async def create_manga(manga: MangaCreate, conn: Connection = Depends(get_db)):

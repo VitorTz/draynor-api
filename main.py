@@ -8,10 +8,13 @@ from src.exceptions import DatabaseError
 from fastapi.staticfiles import StaticFiles
 from src.routes import admin
 from src.routes import admin_genres
+from src.routes import admin_manga_genres
 from src.routes import admin_authors
 from src.routes import admin_mangas
 from src.routes import admin_manga_authors
 from src.routes import admin_logs
+from src.routes import admin_chapter_images
+from src.routes import admin_chapters
 from src import db
 from src.monitor import get_monitor, periodic_update
 from src import middleware
@@ -70,11 +73,14 @@ async def favicon():
     return FileResponse(favicon_path)
 
 
-app.include_router(admin.router, prefix='/api/v1/admin', tags=["admin"])
+app.include_router(admin.router, prefix='/api/v1/admin', tags=["admin_core"])
 app.include_router(admin_authors.router, prefix='/api/v1/admin/authors', tags=["admin_authors"])
-app.include_router(admin_manga_authors.router, prefix='/api/v1/admin/authors/manga', tags=["admin_manga_authors"])
 app.include_router(admin_genres.router, prefix='/api/v1/admin/genres', tags=["admin_genres"])
 app.include_router(admin_mangas.router, prefix='/api/v1/admin/mangas', tags=["admin_mangas"])
+app.include_router(admin_manga_authors.router, prefix='/api/v1/admin/mangas/authors', tags=["admin_manga_authors"])
+app.include_router(admin_manga_genres.router, prefix='/api/v1/admin/mangas/genres', tags=["admin_manga_genres"])
+app.include_router(admin_chapters.router, prefix='/api/v1/admin/chapters', tags=["admin_chapters"])
+app.include_router(admin_chapter_images.router, prefix='/api/v1/admin/chapters/images', tags=["admin_chapters_images"])
 app.include_router(admin_logs.router, prefix='/api/v1/admin/logs', tags=["admin_logs"])
 
 

@@ -6,39 +6,54 @@ from typing import Optional
 from src.exceptions import DatabaseError
 
 
-async def get_mangas(limit: int, offset: int, conn: Connection) -> Pagination[Manga]:
-    total = await db_count('mangas', conn)
-    rows = await conn.fetch(
-        """
-            SELECT
-                id,
-                title,
-                descr,
-                cover_image_url,
-                status,
-                color,
-                updated_at,
-                created_at,
-                mal_url
-            FROM
-                mangas
-            ORDER BY
-                id ASC
-            LIMIT
-                $1
-            OFFSET
-                $2
-        """,
-        limit,
-        offset
-    )
+async def get_mangas(
+    limit: int,
+    offset: int,
+    conn: Connection,
+    q: Optional[str] = None,
+    title: Optional[str] = None
+) -> Pagination[Manga]:
+    base_query = """
+        SELECT
+            id,
+            title,
+            descr,
+            cover_image_url,
+            status,
+            color,
+            updated_at,
+            created_at,
+            mal_url
+        FROM mangas
+    """
+
+    conditions = []
+    params = []
+    if q:
+        conditions.append("title ILIKE $1")
+        params.append(f"%{q}%")
+    elif title:
+        conditions.append("title = $1")
+        params.append(title)
+
+    if conditions:
+        where_clause = "WHERE " + " AND ".join(conditions)
+        total_query = f"SELECT COUNT(*) FROM mangas {where_clause}"
+        total = await conn.fetchval(total_query, *params)
+        query = f"{base_query} {where_clause} ORDER BY id ASC LIMIT ${len(params)+1} OFFSET ${len(params)+2}"
+        rows = await conn.fetch(query, *params, limit, offset)
+    else:
+        total = await db_count('mangas', conn)
+        query = f"{base_query} ORDER BY id ASC LIMIT $1 OFFSET $2"
+        rows = await conn.fetch(query, limit, offset)
 
     return Pagination(
         total=total,
         limit=limit,
         offset=offset,
-        results=[Manga(**dict(row)) for row in rows]
+        results=[Manga(**dict(r)) for r in rows]
     )
+
 
 
 async def create_manga(manga: MangaCreate, conn: Connection) -> Manga:

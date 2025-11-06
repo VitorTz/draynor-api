@@ -159,12 +159,14 @@ CREATE TABLE IF NOT EXISTS chapters (
     FOREIGN KEY (manga_id) REFERENCES mangas(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+
 CREATE TABLE IF NOT EXISTS chapter_images (
     chapter_id BIGINT NOT NULL,
     image_index INT NOT NULL,
     image_url TEXT NOT NULL,
     width INT NOT NULL,
     height INT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (chapter_id, image_index),
     FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) PARTITION BY HASH (chapter_id);

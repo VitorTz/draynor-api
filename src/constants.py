@@ -29,5 +29,5 @@ class Constants:
     SENSITIVE_PATHS = ["/auth/", "/admin/"]
 
     MAX_BODY_SIZE = 20 * 1024 * 1024
-    MAX_REQUESTS = 9999 if os.getenv("ENV", "DEV") == "PROD" else 300
+    MAX_REQUESTS = 300 if os.getenv("ENV", "DEV") == "PROD" else 999_999_999
     WINDOW = 30
