@@ -1,7 +1,8 @@
 from asyncpg import Connection
-from typing import Optional
+from typing import Optional, Literal
 from src.schemas.general import Pagination, IntId
 from src.schemas.chapter import Chapter, ChapterCreate, ChapterUpdate, MangaChapters
+from src.schemas.manga import Manga
 from src.db import db_count
 from src.exceptions import DatabaseError
 
@@ -68,30 +69,69 @@ async def get_chapters(
     )
 
 
-async def get_manga_chapters(manga: IntId, conn: Connection) -> MangaChapters:
-    rows = await conn.fetch(
+async def get_manga_chapters(
+    manga: IntId,
+    limit: Optional[int],
+    order: Literal['ASC', 'DESC'],
+    conn: Connection
+) -> MangaChapters:
+
+    manga_row = await conn.fetchrow(
         """
             SELECT
                 id,
-                manga_id,
-                chapter_index,
-                chapter_name,
-                created_at
+                title,
+                descr,
+                cover_image_url,
+                status,
+                color,
+                updated_at,
+                created_at,
+                mal_url
             FROM
-                chapters
+                mangas
             WHERE
-                manga_id = $1
-            ORDER BY
-                chapter_index ASC
+                id = $1
         """,
         manga.id
     )
 
+    if not manga_row:
+        raise DatabaseError(f"manga with id {manga.id} not found", code=404)
+
+    manga = Manga(**dict(manga_row))
+
+    # Validate order to prevent SQL injection
+    if order not in ("ASC", "DESC"):
+        raise DatabaseError("Invalid order parameter", code=400)
+
+    order_sql = "ASC" if order == "ASC" else "DESC"
+
+    base_query = f"""
+        SELECT
+            id,
+            manga_id,
+            chapter_index,
+            chapter_name,
+            created_at
+        FROM
+            chapters
+        WHERE
+            manga_id = $1
+        ORDER BY
+            chapter_index {order_sql}
+    """
+
+    if limit:
+        base_query += " LIMIT $2"
+        rows = await conn.fetch(base_query, manga.id, limit)
+    else:
+        rows = await conn.fetch(base_query, manga.id)
+
     return MangaChapters(
-        manga_id=manga.id,
+        manga=manga,
         chapters=[Chapter(**dict(row)) for row in rows]
     )
-
 
 async def create_chapter(chapter: ChapterCreate, conn: Connection) -> Chapter:
     await conn.execute(

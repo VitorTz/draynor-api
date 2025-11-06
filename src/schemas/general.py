@@ -1,4 +1,4 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, HttpUrl
 from typing import Generic, TypeVar, List, Optional
 
 
@@ -24,3 +24,20 @@ class Pagination(BaseModel, Generic[T]):
 class IntId(BaseModel):
 
     id: int
+
+
+class ClientInfo(BaseModel):
+
+    client_ip: Optional[str]
+    user_agent: Optional[str]
+    device_name: Optional[str]
+
+
+class ImageUrl(BaseModel):
+
+    url: HttpUrl
+
+
+class Exists(BaseModel):
+
+    exists: bool

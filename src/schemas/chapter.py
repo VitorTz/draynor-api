@@ -30,7 +30,7 @@ class ChapterUpdate(BaseModel):
 
 class MangaChapters(BaseModel):
 
-    manga_id: int
+    manga: Manga
     chapters: List[Chapter]
 
 

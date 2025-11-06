@@ -6,6 +6,10 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from src.exceptions import DatabaseError
 from fastapi.staticfiles import StaticFiles
+from src.routes import auth
+from src.routes import user
+from src.routes import chapter
+from src.routes import library
 from src.routes import admin
 from src.routes import admin_genres
 from src.routes import admin_manga_genres
@@ -20,6 +24,7 @@ from src.monitor import get_monitor, periodic_update
 from src import middleware
 from src import globals
 from src import util
+from src.cloudflare import CloudflareR2Bucket
 from src.models import log as log_model
 import time
 import asyncio
@@ -37,7 +42,11 @@ async def lifespan(app: FastAPI):
     # [PostgreSql INIT]
     await db.db_init()
 
+    # [Cloudflare]
+    app.state.r2 = await CloudflareR2Bucket.get_instance()
+
     print(f"[{Constants.API_NAME} STARTED]")
+
     yield
 
     # [SystemMonitor]
@@ -47,6 +56,11 @@ async def lifespan(app: FastAPI):
 
     # [PostgreSql CLOSE]
     await db.db_close()
+
+    # [Cloudflare]
+    if hasattr(app.state.r2, "close"):
+        await app.state.r2.close()
+
     print(f"[Shutting down {Constants.API_NAME}]")
 
 
@@ -73,6 +87,10 @@ async def favicon():
     return FileResponse(favicon_path)
 
 
+app.include_router(auth.router, prefix='/api/v1/auth', tags=['auth'])
+app.include_router(user.router, prefix='/api/v1/user', tags=['user'])
+app.include_router(chapter.router, prefix='/api/v1/chapters', tags=['chapters'])
+app.include_router(library.router, prefix='/api/v1/library', tags=["library"])
 app.include_router(admin.router, prefix='/api/v1/admin', tags=["admin_core"])
 app.include_router(admin_authors.router, prefix='/api/v1/admin/authors', tags=["admin_authors"])
 app.include_router(admin_genres.router, prefix='/api/v1/admin/genres', tags=["admin_genres"])
