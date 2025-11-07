@@ -172,3 +172,179 @@ async def update_manga(manga: MangaUpdate, conn: Connection) -> Optional[Manga]:
 
 async def delete_manga(manga: IntId, conn: Connection) -> None:
     await conn.execute("DELETE FROM mangas WHERE id = $1", manga.id)
+
+
+async def get_popular_mangas(
+    limit: int,
+    offset: int,
+    conn: Connection
+):
+    total: int = await db_count("mangas", conn)
+    
+    rows = await conn.fetch(
+        """
+           SELECT 
+                m.id,
+                m.title,
+                m.descr,
+                m.cover_image_url,
+                m.status,
+                m.color,
+                m.updated_at,
+                m.created_at,
+                m.mal_url
+            FROM 
+                mangas m
+            JOIN 
+                manga_metrics mm ON mm.manga_id = m.id
+            ORDER BY 
+                mm.total_reads DESC, m.title ASC
+            LIMIT
+                $1
+            OFFSET
+                $2
+        """,
+        limit,
+        offset
+    )
+
+    return Pagination(
+        total=total,
+        limit=limit,
+        offset=offset,
+        results=[Manga(**dict(row)) for row in rows]
+    )
+
+
+async def get_latest_mangas(
+    limit: int,
+    offset: int,
+    conn: Connection
+) -> Pagination[Manga]:
+    total: int = await db_count('mangas', conn)
+    rows = await conn.fetch(
+        """
+            SELECT
+                id,
+                title,
+                descr,
+                status,
+                cover_image_url,
+                mal_url,
+                color,
+                updated_at,
+                created_at
+            FROM
+                mangas
+            ORDER BY
+                updated_at DESC
+            LIMIT
+                $1
+            OFFSET
+                $2
+        """,
+        limit,
+        offset
+    )
+
+    return Pagination(
+        total=total,
+        limit=limit,
+        offset=offset,
+        results=[Manga(**dict(row)) for row in rows]
+    )
+
+
+async def get_random_mangas(
+    limit: int,
+    conn: Connection
+) -> Pagination[Manga]:
+    total = await db_count('mangas', conn)
+    rows = await conn.fetch(
+        """
+            SELECT
+                id,
+                title,
+                descr,
+                status,
+                cover_image_url,
+                mal_url,
+                color,
+                updated_at,
+                created_at
+            FROM
+                mangas
+            ORDER BY
+                RANDOM()
+            LIMIT
+                $1
+            OFFSET
+                $2
+        """
+    )
+
+    return Pagination(
+        total=total,
+        limit=limit,
+        offset=0,
+        results=[Manga(**dict(row)) for row in rows]
+    )
+
+
+async def get_manga_by_genre(
+    genre: IntId, 
+    limit: int,
+    offset: int,
+    conn: Connection
+) -> Pagination[Manga]:
+    total = await conn.fetchval(
+        """
+            SELECT
+                COUNT(*)
+            FROM
+                manga_genres
+            WHERE
+                genre_id = $1
+        """,
+        genre.id
+    )
+
+    rows = await conn.fetch(
+        """
+            SELECT
+                m.id,
+                m.title,
+                m.descr,
+                m.status,
+                m.color,
+                m.cover_image_url,
+                m.mal_url,
+                m.updated_at,
+                m.created_at
+            FROM
+                mangas m
+            JOIN
+                manga_genres mg ON mg.manga_id = m.id
+            JOIN
+                manga_metrics mm ON mm.manga_id = m.id
+            WHERE
+                mg.genre_id = $1
+            ORDER BY
+                mm.total_reads DESC,
+                m.title ASC
+            LIMIT
+                $2
+            OFFSET
+                $3
+        """,
+        genre.id,
+        limit,
+        offset
+    )
+
+    return Pagination(
+        total=total,
+        limit=limit,
+        offset=offset,
+        results=[Manga(**dict(row)) for row in rows]
+    )

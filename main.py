@@ -10,15 +10,23 @@ from src.routes import auth
 from src.routes import user
 from src.routes import chapter
 from src.routes import library
+from src.routes import collections
+from src.routes import manga_request
+from src.routes import bug_reports
+from src.routes import manga
 from src.routes import admin
 from src.routes import admin_genres
 from src.routes import admin_manga_genres
 from src.routes import admin_authors
 from src.routes import admin_mangas
 from src.routes import admin_manga_authors
+from src.routes import admin_collections
 from src.routes import admin_logs
 from src.routes import admin_chapter_images
 from src.routes import admin_chapters
+from src.routes import admin_bug_reports
+from src.routes import admin_manga_request
+from src.routes import admin_manga_blacklist
 from src import db
 from src.monitor import get_monitor, periodic_update
 from src import middleware
@@ -89,8 +97,12 @@ async def favicon():
 
 app.include_router(auth.router, prefix='/api/v1/auth', tags=['auth'])
 app.include_router(user.router, prefix='/api/v1/user', tags=['user'])
+app.include_router(manga.router, prefix='/api/v1/mangas', tags=['mangas'])
 app.include_router(chapter.router, prefix='/api/v1/chapters', tags=['chapters'])
 app.include_router(library.router, prefix='/api/v1/library', tags=["library"])
+app.include_router(collections.router, prefix='/api/v1/collections', tags=["collections"])
+app.include_router(manga_request.router, prefix='/api/v1/manga/requests', tags=["manga_requests"])
+app.include_router(bug_reports.router, prefix='/api/v1/reports/bugs', tags=["bug_reports"])
 app.include_router(admin.router, prefix='/api/v1/admin', tags=["admin_core"])
 app.include_router(admin_authors.router, prefix='/api/v1/admin/authors', tags=["admin_authors"])
 app.include_router(admin_genres.router, prefix='/api/v1/admin/genres', tags=["admin_genres"])
@@ -99,6 +111,10 @@ app.include_router(admin_manga_authors.router, prefix='/api/v1/admin/mangas/auth
 app.include_router(admin_manga_genres.router, prefix='/api/v1/admin/mangas/genres', tags=["admin_manga_genres"])
 app.include_router(admin_chapters.router, prefix='/api/v1/admin/chapters', tags=["admin_chapters"])
 app.include_router(admin_chapter_images.router, prefix='/api/v1/admin/chapters/images', tags=["admin_chapters_images"])
+app.include_router(admin_collections.router, prefix='/api/v1/admin/collections', tags=["admin_collections"])
+app.include_router(admin_manga_request.router, prefix='/api/v1/admin/manga/requests', tags=["admin_manga_request"])
+app.include_router(admin_bug_reports.router, prefix='/api/v1/admin/reports/bugs', tags=["admin_bug_reports"])
+app.include_router(admin_manga_blacklist.router, prefix='/api/v1/admin/blacklist/mangas', tags=["admin_manga_blacklist"])
 app.include_router(admin_logs.router, prefix='/api/v1/admin/logs', tags=["admin_logs"])
 
 

@@ -5,7 +5,7 @@ from src.models import author as author_model
 from src.schemas.general import Pagination, IntId
 from src.db import get_db
 from asyncpg import Connection
-from typing import Optional, Literal
+from typing import Optional
 
 
 router = APIRouter(dependencies=[Depends(require_admin)])

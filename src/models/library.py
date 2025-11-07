@@ -73,6 +73,9 @@ async def get_mangas_by_reading_status(
             WHERE
                 ul.reading_status = $1
                 AND ul.user_id = $2
+                AND m.id NOT IN (
+                    SELECT manga_id FROM manga_blacklist
+                )
         """,
         reading_status,
         user.id
@@ -95,7 +98,10 @@ async def get_mangas_by_reading_status(
                 mangas m ON m.manga_id = ul.manga_id
             WHERE
                 ul.reading_status = $1
-                ul.user_id = $2
+                AND ul.user_id = $2
+                AND m.id NOT IN (
+                    SELECT manga_id FROM manga_blacklist
+                )
             ORDER BY
                 ul.updated_at DESC
             LIMIT
