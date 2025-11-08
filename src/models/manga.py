@@ -348,3 +348,17 @@ async def get_manga_by_genre(
         offset=offset,
         results=[Manga(**dict(row)) for row in rows]
     )
+
+async def update_cover_image_url(manga_id: int, cover_image_url: str, conn: Connection):
+    await conn.execute(
+        """
+            UPDATE
+                mangas
+            SET
+                cover_image_url = $1
+            WHERE
+                id = $2
+        """,
+        cover_image_url,
+        manga_id
+    )

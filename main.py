@@ -1,11 +1,10 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import FileResponse, Response
 from fastapi.exceptions import RequestValidationError, HTTPException
-from src.constants import Constants
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from src.exceptions import DatabaseError
-from fastapi.staticfiles import StaticFiles
 from src.routes import auth
 from src.routes import user
 from src.routes import chapter
@@ -27,13 +26,14 @@ from src.routes import admin_chapters
 from src.routes import admin_bug_reports
 from src.routes import admin_manga_request
 from src.routes import admin_manga_blacklist
-from src import db
 from src.monitor import get_monitor, periodic_update
+from src import db
 from src import middleware
 from src import globals
 from src import util
 from src.cloudflare import CloudflareR2Bucket
 from src.models import log as log_model
+from src.constants import Constants
 import time
 import asyncio
 import contextlib
