@@ -489,10 +489,6 @@ CREATE INDEX IF NOT EXISTS idx_manga_alt_titles_title ON manga_alt_titles(title)
 -- AUTHORS
 CREATE INDEX IF NOT EXISTS idx_authors_name ON authors(name);
 
--- AUTHOR_ROLES
-CREATE INDEX IF NOT EXISTS idx_author_roles_manga_id ON author_roles(manga_id);
-CREATE INDEX IF NOT EXISTS idx_author_roles_author_id ON author_roles(author_id);
-
 -- LOGS
 CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level, created_at DESC);
@@ -568,24 +564,6 @@ CREATE INDEX IF NOT EXISTS idx_manga_metrics_total_reads ON manga_metrics(total_
 -- GLOBAL_METRICS
 CREATE INDEX IF NOT EXISTS idx_global_metrics_date ON global_metrics(metric_date DESC);
 
--- USER_EVENTS (CRÍTICO para performance dos triggers)
-CREATE INDEX IF NOT EXISTS idx_user_events_user_id ON user_events(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_events_entity ON user_events(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS idx_user_events_type ON user_events(event_type);
-CREATE INDEX IF NOT EXISTS idx_user_events_created_at ON user_events(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_user_events_user_created ON user_events(user_id, created_at DESC);
-
--- Índices compostos para queries comuns
-CREATE INDEX IF NOT EXISTS idx_user_events_chapter_read 
-ON user_events(entity_id, created_at DESC) 
-WHERE event_type = 'chapter_read' AND entity_type = 'chapter';
-
-CREATE INDEX IF NOT EXISTS idx_user_events_manga_opened 
-ON user_events(entity_id, created_at DESC) 
-WHERE event_type = 'manga_opened' AND entity_type = 'manga';
-
--- Índice GIN para busca em metadata JSONB
-CREATE INDEX IF NOT EXISTS idx_user_events_metadata ON user_events USING GIN(metadata);
 
 -- APP_INFOS
 CREATE INDEX IF NOT EXISTS idx_app_infos_name ON app_infos(name);
