@@ -348,7 +348,6 @@ CREATE TABLE IF NOT EXISTS logs (
 ------------------------------------------------
 --                 [VIEWS]                    --
 ------------------------------------------------
-DROP MATERIALIZED VIEW manga_page_view CASCADE;
 CREATE MATERIALIZED VIEW IF NOT EXISTS manga_page_view AS
 SELECT
     m.id,
@@ -602,7 +601,6 @@ CREATE INDEX IF NOT EXISTS idx_mangas_descr_trgm ON mangas USING gin(descr gin_t
 
 -- Para busca de autores
 CREATE INDEX IF NOT EXISTS idx_authors_name_trgm ON authors USING gin(name gin_trgm_ops);
-
 
 
 SELECT perform_refresh_manga_page_view();
