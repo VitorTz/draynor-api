@@ -40,10 +40,11 @@ async def login(
         user_login,
         conn
     )
+    
     if user_login_data is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         
-    if user_login_data.locked_until and user_login_data.locked_until > datetime.now(timezone.utc):
+    if Constants.IS_PRODUCTION and user_login_data.locked_until and user_login_data.locked_until > datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Account locked until {user_login_data.locked_until}")
     
     if not security.verify_password(user_login.password, user_login_data.p_hash):

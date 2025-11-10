@@ -38,7 +38,7 @@ async def get_all_chapter_images(limit: int, offset: int, conn: Connection) -> P
     )
 
 
-async def get_chapter_images(chapter: IntId, conn: Connection) -> ChapterImageList:
+async def get_chapter_images(chapter_id: int, conn: Connection) -> ChapterImageList:
     row = await conn.fetchrow(
         """
             SELECT
@@ -52,11 +52,11 @@ async def get_chapter_images(chapter: IntId, conn: Connection) -> ChapterImageLi
             WHERE
                 id = $1
         """,
-        chapter.id
+        chapter_id
     )
 
     if not row:
-        raise DatabaseError(detail=f"chapter with id {chapter.id} not found", code=404)
+        raise DatabaseError(detail=f"chapter with id {chapter_id} not found", code=404)
     
     chapter_model = Chapter(**dict(row))
 
@@ -81,7 +81,7 @@ async def get_chapter_images(chapter: IntId, conn: Connection) -> ChapterImageLi
     )
 
     if not row:
-        raise DatabaseError(detail=f"manga with id {chapter_model.manga_id} not found", code=404)    
+        raise DatabaseError(detail=f"manga with id {chapter_model.manga_id} not found", code=404)
 
     manga_model = Manga(**dict(row))
 
@@ -101,7 +101,7 @@ async def get_chapter_images(chapter: IntId, conn: Connection) -> ChapterImageLi
             ORDER BY
                 image_index ASC
         """,
-        chapter.id
+        chapter_id
     )
 
     images = [ChapterImage(**dict(row)) for row in rows]

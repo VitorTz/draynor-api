@@ -22,7 +22,7 @@ import traceback
 
 
 async def add_log_error(
-    error_level: str,
+    error_level: Literal['DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'],
     message: str,
     path: str,
     method: str,

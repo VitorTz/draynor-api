@@ -22,7 +22,6 @@ class MangaAuthor(BaseModel):
 
     author_name: str
     author_id: int
-    manga_id: int
     role: Literal['Author', 'Artist']
 
 

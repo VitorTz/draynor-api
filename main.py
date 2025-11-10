@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from src.exceptions import DatabaseError
 from src.routes import auth
@@ -12,8 +13,10 @@ from src.routes import library
 from src.routes import collections
 from src.routes import manga_request
 from src.routes import bug_reports
+from src.routes import genre
 from src.routes import manga
 from src.routes import admin
+from src.routes import admin_users
 from src.routes import admin_genres
 from src.routes import admin_manga_genres
 from src.routes import admin_authors
@@ -33,6 +36,7 @@ from src import globals
 from src import util
 from src.cloudflare import CloudflareR2Bucket
 from src.models import log as log_model
+from src.models import manga as manga_model
 from src.constants import Constants
 import time
 import asyncio
@@ -40,15 +44,32 @@ import contextlib
 import os
 
 
+
+async def background_refresh_task():
+    while True:
+        try:
+            pool = db.get_db_pool()
+            conn = await pool.acquire()
+            await manga_model.refresh_manga_page_view(conn)
+            print("[INFO] manga_page_view updated.")
+        except Exception as e:
+            print(f"[ERROR] Erro ao atualizar manga_page_view: {e}")
+        finally:
+            await pool.release(conn)
+        await asyncio.sleep(600)
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"[Starting {Constants.API_NAME}]")
+    # [PostgreSql INIT]
+    await db.db_init()
 
     # [System Monitor Task]
     task = asyncio.create_task(periodic_update())
 
-    # [PostgreSql INIT]
-    await db.db_init()
+    # [Database tasks]
+    task_refresh_manga_page_vuew = asyncio.create_task(background_refresh_task())
 
     # [Cloudflare]
     app.state.r2 = await CloudflareR2Bucket.get_instance()
@@ -61,6 +82,11 @@ async def lifespan(app: FastAPI):
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await task
+
+    # [Database tasks]
+    task_refresh_manga_page_vuew.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task_refresh_manga_page_vuew
 
     # [PostgreSql CLOSE]
     await db.db_close()
@@ -103,7 +129,9 @@ app.include_router(library.router, prefix='/api/v1/library', tags=["library"])
 app.include_router(collections.router, prefix='/api/v1/collections', tags=["collections"])
 app.include_router(manga_request.router, prefix='/api/v1/manga/requests', tags=["manga_requests"])
 app.include_router(bug_reports.router, prefix='/api/v1/reports/bugs', tags=["bug_reports"])
+app.include_router(genre.router, prefix='/api/v1/genres', tags=["genres"])
 app.include_router(admin.router, prefix='/api/v1/admin', tags=["admin_core"])
+app.include_router(admin_users.router, prefix='/api/v1/admin/users', tags=["admin_users"])
 app.include_router(admin_authors.router, prefix='/api/v1/admin/authors', tags=["admin_authors"])
 app.include_router(admin_genres.router, prefix='/api/v1/admin/genres', tags=["admin_genres"])
 app.include_router(admin_mangas.router, prefix='/api/v1/admin/mangas', tags=["admin_mangas"])
@@ -119,6 +147,20 @@ app.include_router(admin_logs.router, prefix='/api/v1/admin/logs', tags=["admin_
 
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+origins = [
+    "http://localhost:5173",
+    "https://vitortz.github.io",
+    "https://vitortz.github.io/draynor-client"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 ########################## MIDDLEWARES ##########################

@@ -70,7 +70,7 @@ async def get_chapters(
 
 
 async def get_manga_chapters(
-    manga: IntId,
+    manga_id: int,
     limit: Optional[int],
     order: Literal['ASC', 'DESC'],
     conn: Connection
@@ -93,11 +93,11 @@ async def get_manga_chapters(
             WHERE
                 id = $1
         """,
-        manga.id
+        manga_id
     )
 
     if not manga_row:
-        raise DatabaseError(f"manga with id {manga.id} not found", code=404)
+        raise DatabaseError(f"manga with id {manga_id} not found", code=404)
 
     manga = Manga(**dict(manga_row))
 

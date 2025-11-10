@@ -78,7 +78,7 @@ async def get_bug_reports(
 
 
 async def create_bug_report(bug_report: BugReportCreate, conn: Connection) -> BugReport:
-    row = await conn.execute(
+    row = await conn.fetchrow(
         """
             INSERT INTO bug_reports (
                 title,

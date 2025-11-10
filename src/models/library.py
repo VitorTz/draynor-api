@@ -32,7 +32,7 @@ async def upsert_reading_status(reading_status: ReadingStatusCreate, user: User,
     )
 
 
-async def get_manga_reading_status(manga: IntId, user: User, conn: Connection):
+async def get_manga_reading_status(manga_id: int, user: User, conn: Connection):
     row = await conn.fetchrow(
         """
             SELECT
@@ -48,7 +48,7 @@ async def get_manga_reading_status(manga: IntId, user: User, conn: Connection):
                 manga_id = $1
                 AND user_id = $2
         """,
-        manga.id,
+        manga_id,
         user.id
     )
 
@@ -69,7 +69,7 @@ async def get_mangas_by_reading_status(
             FROM
                 library ul
             JOIN
-                mangas m ON m.manga_id = ul.manga_id
+                mangas m ON m.id = ul.manga_id
             WHERE
                 ul.reading_status = $1
                 AND ul.user_id = $2
@@ -95,7 +95,7 @@ async def get_mangas_by_reading_status(
             FROM
                 library ul
             JOIN
-                mangas m ON m.manga_id = ul.manga_id
+                mangas m ON m.id = ul.manga_id
             WHERE
                 ul.reading_status = $1
                 AND ul.user_id = $2

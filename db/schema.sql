@@ -346,8 +346,89 @@ CREATE TABLE IF NOT EXISTS logs (
 
 
 ------------------------------------------------
+--                 [VIEWS]                    --
+------------------------------------------------
+DROP MATERIALIZED VIEW manga_page_view CASCADE;
+CREATE MATERIALIZED VIEW IF NOT EXISTS manga_page_view AS
+SELECT
+    m.id,
+    m.title,
+    m.descr,
+    m.status,
+    m.color,
+    m.cover_image_url,
+    m.mal_url,
+    m.updated_at,
+    m.created_at,
+
+    COALESCE(
+        (
+            SELECT
+                total_reads
+            FROM
+                manga_metrics
+            WHERE
+                manga_metrics.manga_id = m.id
+        ),
+        0::BIGINT
+    ) as views,
+
+    COALESCE(
+        (
+            SELECT json_agg(jsonb_build_object(
+                'id', c.id,
+                'chapter_name', c.chapter_name
+            ) ORDER BY c.chapter_index)
+            FROM chapters c
+            WHERE c.manga_id = m.id
+        ),
+        '[]'
+    ) AS chapters,
+
+    COALESCE(
+        (
+            SELECT json_agg(jsonb_build_object(
+                'id', g.id,
+                'genre', g.genre,
+                'created_at', g.created_at
+            ))
+            FROM manga_genres mg
+            JOIN genres g ON g.id = mg.genre_id
+            WHERE mg.manga_id = m.id
+        ),
+        '[]'
+    ) AS genres,
+
+    COALESCE(
+        (
+            SELECT json_agg(jsonb_build_object(
+                'author_id', a.id,
+                'author_name', a.name,
+                'role', ma.role
+            ))
+            FROM manga_authors ma
+            JOIN authors a ON a.id = ma.author_id
+            WHERE ma.manga_id = m.id
+        ),
+        '[]'
+    ) AS authors
+
+FROM mangas m;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_manga_page_view_manga_id ON manga_page_view (id);
+
+------------------------------------------------
 --               [TRIGGERS/FUNCTIONS]         --
 ------------------------------------------------
+
+
+CREATE OR REPLACE FUNCTION perform_refresh_manga_page_view()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY manga_page_view;
+END;
+$$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION create_user_login_attempt()
 RETURNS TRIGGER AS $$
@@ -380,6 +461,7 @@ CREATE OR REPLACE TRIGGER trg_create_manga_metrics
 AFTER INSERT ON mangas
 FOR EACH ROW
 EXECUTE FUNCTION create_manga_metrics();
+
 
 ------------------------------------------------
 --                 [INDEXES]                  --
@@ -520,3 +602,7 @@ CREATE INDEX IF NOT EXISTS idx_mangas_descr_trgm ON mangas USING gin(descr gin_t
 
 -- Para busca de autores
 CREATE INDEX IF NOT EXISTS idx_authors_name_trgm ON authors USING gin(name gin_trgm_ops);
+
+
+
+SELECT perform_refresh_manga_page_view();

@@ -1,9 +1,14 @@
 from asyncpg import Connection
 from src.schemas.manga import Manga, MangaCreate, MangaUpdate
 from src.schemas.general import Pagination, IntId
+from src.schemas.genre import Genre
+from src.schemas.manga_page import MangaPageData, MangaPageChapter
+from src.schemas.user import User
+from src.schemas.author import MangaAuthor
 from src.db import db_count
-from typing import Optional
+from typing import Optional, Literal
 from src.exceptions import DatabaseError
+import json
 
 
 async def get_mangas(
@@ -54,6 +59,64 @@ async def get_mangas(
         results=[Manga(**dict(r)) for r in rows]
     )
 
+
+async def get_mangas_complete(
+    title: Optional[str],
+    genre_id: Optional[int],
+    order: Literal['ASC', 'DESC'],
+    limit: int,
+    offset: int,
+    conn: Connection
+) -> Pagination[Manga]:
+    
+    if order not in ('ASC', 'DESC'):
+        order = 'ASC'
+
+    conditions = []
+    params = []
+    
+    if title:
+        params.append(f"%{title}%")
+        conditions.append("m.title ILIKE $1")
+
+    if genre_id:
+        params.append(genre_id)
+        conditions.append(f"mg.genre_id = ${len(params)}")
+
+    base_query = """
+            SELECT DISTINCT
+                id,
+                title,
+                descr,
+                status,
+                color,
+                cover_image_url,
+                mal_url,
+                updated_at,
+                created_at
+            FROM
+                mangas m
+            JOIN
+                manga_genres mg ON mg.manga_id = m.id
+        """
+    
+    if conditions:
+        where_clause = "WHERE " + " AND ".join(conditions)
+        total_query = f"SELECT COUNT(DISTINCT (m.*)) FROM mangas m JOIN manga_genres mg ON mg.manga_id = m.id {where_clause};"
+        total = await conn.fetchval(total_query, *params)
+        query = f"{base_query} {where_clause} ORDER BY m.title {order} LIMIT ${len(params)+1} OFFSET ${len(params)+2}"
+        rows = await conn.fetch(query, *params, limit, offset)
+    else:
+        total = await db_count('mangas', conn)
+        query = f"{base_query} ORDER BY m.title {order} LIMIT $1 OFFSET $2"
+        rows = await conn.fetch(query, limit, offset)
+    
+    return Pagination(
+        total=total,
+        limit=limit,
+        offset=offset,
+        results=[Manga(**dict(r)) for r in rows]
+    )
 
 
 async def create_manga(manga: MangaCreate, conn: Connection) -> Manga:
@@ -278,9 +341,8 @@ async def get_random_mangas(
                 RANDOM()
             LIMIT
                 $1
-            OFFSET
-                $2
-        """
+        """,
+        limit
     )
 
     return Pagination(
@@ -292,62 +354,59 @@ async def get_random_mangas(
 
 
 async def get_manga_by_genre(
-    genre: IntId, 
+    genre_id: int,
     limit: int,
     offset: int,
     conn: Connection
 ) -> Pagination[Manga]:
-    total = await conn.fetchval(
-        """
-            SELECT
-                COUNT(*)
-            FROM
-                manga_genres
-            WHERE
-                genre_id = $1
-        """,
-        genre.id
-    )
-
     rows = await conn.fetch(
         """
-            SELECT
-                m.id,
-                m.title,
-                m.descr,
-                m.status,
-                m.color,
-                m.cover_image_url,
-                m.mal_url,
-                m.updated_at,
-                m.created_at
-            FROM
-                mangas m
-            JOIN
-                manga_genres mg ON mg.manga_id = m.id
-            JOIN
-                manga_metrics mm ON mm.manga_id = m.id
-            WHERE
-                mg.genre_id = $1
-            ORDER BY
-                mm.total_reads DESC,
-                m.title ASC
-            LIMIT
-                $2
-            OFFSET
-                $3
+        SELECT
+            m.id,
+            m.title,
+            m.descr,
+            m.status,
+            m.color,
+            m.cover_image_url,
+            m.mal_url,
+            m.updated_at,
+            m.created_at,
+            COUNT(*) OVER() AS total_count
+        FROM 
+            mangas m
+        JOIN 
+            manga_genres mg ON mg.manga_id = m.id
+        JOIN 
+            manga_metrics mm ON mm.manga_id = m.id
+        WHERE 
+            mg.genre_id = $1
+        ORDER BY 
+            mm.total_reads DESC, m.title ASC
+        LIMIT 
+            $2 
+        OFFSET 
+            $3
         """,
-        genre.id,
+        genre_id,
         limit,
         offset
     )
 
+    if not rows:
+        return Pagination(
+            total=0, 
+            limit=limit, 
+            offset=offset, 
+            results=[]
+        )
+
     return Pagination(
-        total=total,
+        total=rows[0]["total_count"],
         limit=limit,
         offset=offset,
         results=[Manga(**dict(row)) for row in rows]
     )
+
 
 async def update_cover_image_url(manga_id: int, cover_image_url: str, conn: Connection):
     await conn.execute(
@@ -362,3 +421,125 @@ async def update_cover_image_url(manga_id: int, cover_image_url: str, conn: Conn
         cover_image_url,
         manga_id
     )
+
+
+async def get_manga_page_data(manga_id: int, user: Optional[User], conn: Connection) -> MangaPageData:
+    row = await conn.fetchrow(
+        "SELECT * FROM manga_page_view WHERE id = $1;",
+        manga_id
+    )
+
+    if not row:
+        raise DatabaseError(f"manga with id {manga_id} has no data", code=404)
+    
+    await conn.execute(
+        """
+            UPDATE
+                manga_metrics
+            SET
+                total_reads = total_reads + 1
+            WHERE
+                manga_id = $1
+        """,
+        manga_id
+    )
+
+    chapters = json.loads(row['chapters'])
+    genres = json.loads(row['genres'])
+    authors = json.loads(row['authors'])
+
+    if user:
+        reading_status: Optional[str] = await conn.fetchval(
+            """
+                SELECT 
+                    reading_status
+                FROM 
+                    library
+                WHERE
+                    manga_id = $1 AND user_id = $2
+            """,
+            manga_id,
+            user.id
+        )
+    else:
+        reading_status = None
+    
+    manga = Manga(
+        id=row['id'],
+        title=row['title'],
+        descr=row['descr'],
+        status=row['status'],
+        color=row['color'],
+        cover_image_url=row['cover_image_url'],
+        mal_url=row['mal_url'],
+        updated_at=row['updated_at'],
+        created_at=row['created_at']
+    )
+
+    return MangaPageData(
+        manga=manga,
+        manga_num_views=row['views'] + 1,
+        chapters=[MangaPageChapter(**dict(row)) for row in chapters],
+        genres=[Genre(**dict(row)) for row in genres],
+        authors=[MangaAuthor(**dict(row)) for row in authors],
+        reading_status=reading_status
+    )
+
+
+async def get_mangas_page_data(limit: int, offset: int, conn: Connection) -> Pagination[MangaPageData]:
+    total: int = await db_count("manga_page_view", conn)
+
+    rows = await conn.fetch(
+        """
+            SELECT
+                *
+            FROM
+                manga_page_view
+            ORDER BY
+                RANDOM()
+            LIMIT
+                $1
+            OFFSET
+                $2
+        """,
+        limit,
+        offset
+    )
+
+    results = []
+
+    for row in rows:
+        manga = Manga(
+            id=row['id'],
+            title=row['title'],
+            descr=row['descr'],
+            status=row['status'],
+            color=row['color'],
+            cover_image_url=row['cover_image_url'],
+            mal_url=row['mal_url'],
+            updated_at=row['updated_at'],
+            created_at=row['created_at']
+        )
+        chapters = json.loads(row['chapters'])
+        genres = json.loads(row['genres'])
+        authors = json.loads(row['authors'])
+        results.append(
+            MangaPageData(
+                manga=manga,
+                manga_num_views=row['views'] + 1,
+                chapters=[MangaPageChapter(**dict(row)) for row in chapters],
+                genres=[Genre(**dict(row)) for row in genres],
+                authors=[MangaAuthor(**dict(row)) for row in authors],
+                reading_status=None
+            )
+        )
+
+    return Pagination[MangaPageData](
+        total=total,
+        limit=limit,
+        offset=offset,
+        results=results
+    )
+
+async def refresh_manga_page_view(conn: Connection) -> None:
+    await conn.execute("SELECT perform_refresh_manga_page_view()")

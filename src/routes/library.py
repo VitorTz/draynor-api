@@ -37,11 +37,11 @@ async def get_mangas_by_reading_status(
 
 @router.get("/manga", status_code=status.HTTP_200_OK, response_model=MangaReadingStatus)
 async def get_manga_reading_status(
-    manga: IntId,
+    manga_id: int = Query(...),
     user: User = Depends(get_user_from_token),
     conn: Connection = Depends(get_db)
 ):
-    return await library_model.get_manga_reading_status(manga, user, conn)
+    return await library_model.get_manga_reading_status(manga_id, user, conn)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)

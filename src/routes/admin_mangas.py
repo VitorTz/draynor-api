@@ -56,6 +56,13 @@ async def update_manga_cover_image(
     return Response()
 
 
+@router.post("/view", status_code=status.HTTP_204_NO_CONTENT)
+async def refresh_manga_page_view(
+    conn: Connection = Depends(get_db)
+):
+    await manga_model.refresh_manga_page_view(conn)
+    
+
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_manga(manga: IntId, conn: Connection = Depends(get_db)):
     await manga_model.delete_manga(manga, conn)

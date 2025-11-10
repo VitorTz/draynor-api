@@ -26,6 +26,11 @@ class IntId(BaseModel):
     id: int
 
 
+class StrId(BaseModel):
+
+    id: str
+
+
 class ClientInfo(BaseModel):
 
     client_ip: Optional[str]

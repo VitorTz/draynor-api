@@ -53,9 +53,9 @@ def hash_password(password: str) -> bytes | None:
     return pwd_context.hash(password.strip()).encode()
 
 
-def verify_password(password: str, password_hash: Union[bytes, memoryview]) -> bool:
+def verify_password(password: str, password_hash: bytes) -> bool:
     if not password: return False
-    return bytes(password_hash) == hashlib.md5(password.strip().encode()).digest()
+    return password_hash == hashlib.md5(password.strip().encode()).digest()
 
 
 def create_new_refresh_token_expires_time() -> datetime:

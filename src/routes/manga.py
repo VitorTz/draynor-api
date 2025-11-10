@@ -1,12 +1,38 @@
 from src.schemas.manga import Manga
 from src.schemas.general import Pagination, IntId
+from src.schemas.manga_page import MangaPageData
+from src.schemas.user import User
 from fastapi import APIRouter, Query, Depends, status
 from src.models import manga as manga_model
 from src.db import get_db
 from asyncpg import Connection
+from src.security import get_user_from_token_if_exists
+from typing import Optional, Literal
 
 
 router = APIRouter()
+
+
+@router.get("/search")
+async def get_mangas_by_title(
+    q: str = Query(...),
+    limit: int = Query(default=64, ge=0, le=64),
+    offset: int = Query(default=0, ge=0),
+    conn: Connection = Depends(get_db)
+) -> Pagination[Manga]:
+    return await manga_model.get_mangas(limit, offset, conn, q)
+
+
+@router.get("/search/complete")
+async def search_mangas_complete(
+    title: Optional[str] = Query(default=None),
+    genre_id: Optional[int] = Query(default=None),
+    order: Literal['ASC', 'DESC'] = Query(default='ASC'),
+    limit: int = Query(default=64, ge=0, le=64),
+    offset: int = Query(default=0, ge=0),
+    conn: Connection = Depends(get_db)
+) -> Pagination[Manga]:
+    return await manga_model.get_mangas_complete(title, genre_id, order, limit, offset, conn)
 
 
 @router.get("/popular", status_code=status.HTTP_200_OK, response_model=Pagination[Manga])
@@ -16,6 +42,24 @@ async def get_most_popular_mangas(
     conn: Connection = Depends(get_db)
 ) -> Pagination[Manga]:
     return await manga_model.get_popular_mangas(limit, offset, conn)
+
+
+@router.get("/page")
+async def get_manga_page_data(
+    manga_id: int = Query(...), 
+    user: Optional[User] = Depends(get_user_from_token_if_exists),
+    conn: Connection = Depends(get_db)
+) -> MangaPageData:
+    return await manga_model.get_manga_page_data(manga_id, user, conn)
+
+
+@router.get("/page/list")
+async def get_mangas_page_data(
+    limit: int = Query(default=64, ge=0, le=64),
+    offset: int = Query(default=0, ge=0),
+    conn: Connection = Depends(get_db)
+) -> Pagination[MangaPageData]:
+    return await manga_model.get_mangas_page_data(limit, offset, conn)
 
 
 @router.get("/latest", status_code=status.HTTP_200_OK, response_model=Pagination[Manga])
@@ -37,9 +81,9 @@ async def get_random_mangas(
 
 @router.get("/genre", status_code=status.HTTP_200_OK, response_model=Pagination[Manga])
 async def get_manga_by_genre(
-    genre: IntId,
+    genre_id: int = Query(...),
     limit: int = Query(default=64, ge=0, le=64),
     offset: int = Query(default=0, ge=0),
     conn: Connection = Depends(get_db)
 ) -> Pagination[Manga]:
-    return await manga_model.get_manga_by_genre(genre, limit, offset, conn)
+    return await manga_model.get_manga_by_genre(genre_id, limit, offset, conn)

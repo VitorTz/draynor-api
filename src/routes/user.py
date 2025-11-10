@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Request, UploadFile
+from fastapi import APIRouter, Depends, status, Request, UploadFile, File
 from fastapi.exceptions import HTTPException
 from src.schemas.general import Pagination, ImageUrl
 from src.schemas.user import User, UserUpdate
@@ -24,14 +24,14 @@ async def update_user_perfil(
         return await user_model.update_user(user, user_update, conn)
     except UniqueViolationError as e:
         if 'username' in str(e):
-            raise HTTPException(status_code=409, detail="Username already registered")
-        raise HTTPException(status_code=409, detail="Email already registered")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already registered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
 
-@router.put("/image/perfil", status_code=status.HTTP_201_CREATED, response_model=ImageUrl)
+@router.post("/image/perfil", status_code=status.HTTP_201_CREATED, response_model=ImageUrl)
 async def update_user_perfil_image(
     request: Request,
-    file: UploadFile,
+    file: UploadFile = File(...),
     user: User = Depends(security.get_user_from_token),
     conn: Connection = Depends(get_db),
 ):
@@ -63,6 +63,6 @@ async def delete_user_perfil_image(
 ):
     if not user.perfil_image_url: return
     r2: CloudflareR2Bucket = request.app.state.r2
-    image_key = r2.extract_key(user.perfil_image_url)
+    image_key: str = r2.extract_key(user.perfil_image_url)
     await r2.delete_file(image_key)
     await user_model.update_user_perfil_image_urll(user, None, conn)

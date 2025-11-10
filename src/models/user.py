@@ -9,9 +9,55 @@ from src.schemas.user import (
 from src.schemas.token import Token
 from src.schemas.general import ClientInfo, Pagination
 from asyncpg import Connection
-from src.exceptions import DatabaseError
+from src.db import db_count
 from typing import Optional
 
+
+async def get_users(limit: int, offset: int, conn: Connection) -> Pagination[User]:
+    total: int = await db_count("users", conn)
+
+    rows = await conn.fetch(
+        """
+            SELECT
+                id,
+                username,
+                email,
+                p_hash,
+                last_login_at,
+                created_at,
+                perfil_image_url
+            FROM
+                users
+            ORDER BY    
+                created_at DESC
+            LIMIT
+                $1
+            OFFSET
+                $2
+        """,
+        limit,
+        offset
+    )
+
+    return Pagination(
+        total=total,
+        limit=limit,
+        offset=offset,
+        results=[User(**dict(row)) for row in rows]
+    )
+
+
+async def delete_user(user_id: str, conn: Connection) -> None:
+    await conn.execute(
+        """
+            DELETE FROM
+                users
+            WHERE
+                id = $1
+        """,
+        user_id
+    )
+    
 
 async def user_exists(user_id: str, conn: Connection) -> bool:
     r = await conn.fetchval("SELECT id FROM users WHERE id = $1", user_id)

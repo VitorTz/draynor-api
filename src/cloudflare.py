@@ -94,5 +94,5 @@ class CloudflareR2Bucket:
         async with await self._get_client() as s3:
             await s3.delete_object(Bucket=self.bucket_name, Key=key)
 
-    async def extract_key(self, url: str) -> str:
+    def extract_key(self, url: str) -> str:
         return url.replace(self.prefix, '').strip()
