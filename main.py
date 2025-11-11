@@ -109,6 +109,24 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+if Constants.IS_PRODUCTION:
+    origins = [
+        "https://vitortz.github.io",
+        "https://vitortz.github.io/draynor-client"
+    ]
+else:
+    origins = [
+        "http://localhost:5173"
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/")
 def read_root():
@@ -148,29 +166,21 @@ app.include_router(admin_logs.router, prefix='/api/v1/admin/logs', tags=["admin_
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-if Constants.IS_PRODUCTION:
-    origins = [
-        "https://vitortz.github.io",
-        "https://vitortz.github.io/draynor-client"
-    ]
-else:
-    origins = [
-        "http://localhost:5173"
-    ]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 ########################## MIDDLEWARES ##########################
 
 @app.middleware("http")
 async def http_middleware(request: Request, call_next):
+
+    if request.method == "OPTIONS":
+        response = Response(status_code=200)
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = request.headers.get(
+            "access-control-request-headers", "*"
+        )
+        return response
+     
     if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
         response = await call_next(request)
         return response
