@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=Pagination[Genre])
 async def get_genres(
-    limit: int = Query(default=64, ge=0, le=64), 
+    limit: int = Query(default=64, ge=0), 
     offset: int = Query(default=0, ge=0), 
     conn: Connection = Depends(get_db)
 ):

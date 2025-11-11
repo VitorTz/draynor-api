@@ -1,4 +1,4 @@
-from src.schemas.genre import GenreCreate, Genre, GenreDelete, MangaGenreCreate, MangaGenre, MangaGenreList
+from src.schemas.genre import GenreCreate, Genre, MangaGenreCreate, MangaGenre, MangaGenreList
 from src.schemas.general import Pagination, IntId
 from asyncpg import Connection
 from src.db import db_count
