@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 from src.schemas.genre import Genre
 from src.schemas.general import Pagination
 from src.models import genre as genre_model
@@ -10,5 +10,9 @@ router = APIRouter()
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=Pagination[Genre])
-async def get_genres(conn: Connection = Depends(get_db)):
-    return await genre_model.get_genres(1000, 0, conn)
+async def get_genres(
+    limit: int = Query(default=64, ge=0, le=64), 
+    offset: int = Query(default=0, ge=0), 
+    conn: Connection = Depends(get_db)
+):
+    return await genre_model.get_genres(limit, offset, conn)

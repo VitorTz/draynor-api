@@ -148,11 +148,15 @@ app.include_router(admin_logs.router, prefix='/api/v1/admin/logs', tags=["admin_
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-origins = [
-    "http://localhost:5173",
-    "https://vitortz.github.io",
-    "https://vitortz.github.io/draynor-client"
-]
+if Constants.IS_PRODUCTION:
+    origins = [
+        "https://vitortz.github.io",
+        "https://vitortz.github.io/draynor-client"
+    ]
+else:
+    origins = [
+        "http://localhost:5173"
+    ]
 
 app.add_middleware(
     CORSMiddleware,
