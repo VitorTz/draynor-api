@@ -2,6 +2,8 @@ from src.schemas.manga import Manga
 from src.schemas.general import Pagination, IntId
 from src.schemas.manga_page import MangaPageData
 from src.schemas.user import User
+from src.schemas.genre import Genre
+from src.models import genre as genre_model
 from fastapi import APIRouter, Query, Depends, status
 from src.models import manga as manga_model
 from src.db import get_db
@@ -87,3 +89,12 @@ async def get_manga_by_genre(
     conn: Connection = Depends(get_db)
 ) -> Pagination[Manga]:
     return await manga_model.get_manga_by_genre(genre_id, limit, offset, conn)
+
+
+@router.get("/genres", status_code=status.HTTP_200_OK, response_model=Pagination[Genre])
+async def get_all_genres(
+    limit: int = Query(default=256, ge=0),
+    offset: int = Query(default=0, ge=0),
+    conn: Connection = Depends(get_db)
+):
+    return await genre_model.fetch_genres(limit, offset, conn)

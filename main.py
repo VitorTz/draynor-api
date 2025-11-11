@@ -13,7 +13,6 @@ from src.routes import library
 from src.routes import collections
 from src.routes import manga_request
 from src.routes import bug_reports
-from src.routes import genre
 from src.routes import manga
 from src.routes import admin
 from src.routes import admin_users
@@ -147,7 +146,6 @@ app.include_router(library.router, prefix='/api/v1/library', tags=["library"])
 app.include_router(collections.router, prefix='/api/v1/collections', tags=["collections"])
 app.include_router(manga_request.router, prefix='/api/v1/manga/requests', tags=["manga_requests"])
 app.include_router(bug_reports.router, prefix='/api/v1/reports/bugs', tags=["bug_reports"])
-app.include_router(genre.router, prefix='/api/v1/genres', tags=["genres"])
 app.include_router(admin.router, prefix='/api/v1/admin', tags=["admin_core"])
 app.include_router(admin_users.router, prefix='/api/v1/admin/users', tags=["admin_users"])
 app.include_router(admin_authors.router, prefix='/api/v1/admin/authors', tags=["admin_authors"])
@@ -171,15 +169,21 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 @app.middleware("http")
 async def http_middleware(request: Request, call_next):
-
-    if request.method == "OPTIONS":
-        response = Response(status_code=200)
-        response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = request.headers.get(
-            "access-control-request-headers", "*"
-        )
-        return response
+    if Constants.IS_PRODUCTION:
+        if request.method == "OPTIONS":
+            origin = request.headers.get("origin")
+            if origin in [
+                "https://vitortz.github.io",
+                "https://vitortz.github.io/draynor-client"
+            ]:
+                headers = {
+                    "Access-Control-Allow-Origin": "https://vitortz.github.io",
+                    "Access-Control-Allow-Credentials": "true",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers", "*"),
+                }
+                return Response(status_code=200, headers=headers)
+            return Response(status_code=403)
      
     if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
         response = await call_next(request)

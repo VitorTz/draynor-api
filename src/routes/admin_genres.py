@@ -18,7 +18,7 @@ async def get_genres(
     genre_name: Optional[str] = Query(default=None, description='Buscar por gênero exato'),
     conn: Connection = Depends(get_db)
 ):
-    return await genre_model.get_genres(limit, offset, conn, genre_name)
+    return await genre_model.fetch_genres(limit, offset, conn, genre_name)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Genre)

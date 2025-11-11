@@ -6,7 +6,7 @@ from src.exceptions import DatabaseError
 from typing import Optional
 
 
-async def get_genres(limit: int, offset: int, conn: Connection, genre_name: Optional[str] = None) -> Pagination[Genre]:
+async def fetch_genres(limit: int, offset: int, conn: Connection, genre_name: Optional[str] = None) -> Pagination[Genre]:
     if genre_name:
         total = await conn.fetchval("SELECT COUNT(*) FROM genres WHERE genre = $1", genre_name)
         rows = await conn.fetch(
