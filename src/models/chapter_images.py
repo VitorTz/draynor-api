@@ -4,6 +4,7 @@ from src.schemas.general import IntId, Pagination
 from src.schemas.manga import Manga
 from src.exceptions import DatabaseError
 from src.db import db_count
+import asyncio
 
 
 async def get_all_chapter_images(limit: int, offset: int, conn: Connection) -> Pagination[ChapterImage]:
@@ -39,78 +40,87 @@ async def get_all_chapter_images(limit: int, offset: int, conn: Connection) -> P
 
 
 async def get_chapter_images(chapter_id: int, conn: Connection) -> ChapterImageList:
+    # Busca capítulo e manga juntos via JOIN
     row = await conn.fetchrow(
         """
-            SELECT
-                id,
-                manga_id,
-                chapter_index,
-                chapter_name,
-                created_at
-            FROM    
-                chapters
-            WHERE
-                id = $1
+        SELECT 
+            c.id AS chapter_id,
+            c.manga_id,
+            c.chapter_index,
+            c.chapter_name,
+            c.created_at AS chapter_created_at,
+            m.id AS manga_id,
+            m.title,
+            m.descr,
+            m.color,
+            m.cover_image_url,
+            m.status,
+            m.updated_at,
+            m.created_at AS manga_created_at,
+            m.mal_url
+        FROM chapters c
+        JOIN mangas m ON m.id = c.manga_id
+        WHERE c.id = $1
         """,
         chapter_id
     )
 
     if not row:
         raise DatabaseError(detail=f"chapter with id {chapter_id} not found", code=404)
-    
-    chapter_model = Chapter(**dict(row))
 
-    row = await conn.fetchrow(
-        """
-            SELECT
-                id,
-                title,
-                descr,
-                color,
-                cover_image_url,
-                status,
-                updated_at,
-                created_at,
-                mal_url
-            FROM
-                mangas
-            WHERE
-                id = $1     
-        """,
-        chapter_model.manga_id
+    chapter_model = Chapter(
+        id=row["chapter_id"],
+        manga_id=row["manga_id"],
+        chapter_index=row["chapter_index"],
+        chapter_name=row["chapter_name"],
+        created_at=row["chapter_created_at"],
     )
 
-    if not row:
-        raise DatabaseError(detail=f"manga with id {chapter_model.manga_id} not found", code=404)
+    manga_model = Manga(
+        id=row["manga_id"],
+        title=row["title"],
+        descr=row["descr"],
+        color=row["color"],
+        cover_image_url=row["cover_image_url"],
+        status=row["status"],
+        updated_at=row["updated_at"],
+        created_at=row["manga_created_at"],
+        mal_url=row["mal_url"],
+    )
 
-    manga_model = Manga(**dict(row))
-
+    # Busca imagens
     rows = await conn.fetch(
         """
-            SELECT
-                chapter_id,
-                image_index,
-                image_url,
-                width,
-                height,
-                created_at
-            FROM
-                chapter_images
-            WHERE
-                chapter_id = $1
-            ORDER BY
-                image_index ASC
+        SELECT
+            chapter_id,
+            image_index,
+            image_url,
+            width,
+            height,
+            created_at
+        FROM chapter_images
+        WHERE chapter_id = $1
+        ORDER BY image_index
         """,
         chapter_id
     )
 
-    images = [ChapterImage(**dict(row)) for row in rows]
+    images = [ChapterImage(**dict(r)) for r in rows]
+    
+    await conn.execute(
+        """
+        UPDATE manga_metrics
+        SET total_reads = total_reads + 1
+        WHERE manga_id = $1
+        """,
+        manga_model.id
+    )    
 
     return ChapterImageList(
         manga=manga_model,
         chapter=chapter_model,
         num_images=len(images),
-        images=images
+        images=images,
     )
 
 
