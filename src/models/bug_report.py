@@ -32,7 +32,7 @@ async def get_bug_reports(
                     bug_type,
                     created_at
                 FROM
-                    bug_reposts
+                    bug_reports
                 WHERE
                     bug_type = $1
                 ORDER BY
@@ -57,7 +57,7 @@ async def get_bug_reports(
                     bug_type,
                     created_at
                 FROM
-                    bug_reposts
+                    bug_reports
                 ORDER BY
                     created_at DESC
                 LIMIT

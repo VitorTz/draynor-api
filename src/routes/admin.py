@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends
 from src.security import require_admin
+from src.db import get_db
+from asyncpg import Connection
 import platform
 import psutil
 import time
@@ -27,4 +29,17 @@ def admin_health():
             "percent": psutil.disk_usage('/').percent
         },
         "uptime_seconds": round(time.time() - psutil.boot_time(), 2)
+    }
+
+
+@router.get("/count")
+async def get_db_count(conn: Connection = Depends(get_db)):
+    num_mangas = await conn.fetchval("SELECT COUNT(*) FROM mangas")
+    num_chapters = await conn.fetchval("SELECT COUNT(*) FROM chapters")
+    num_chapter_images = await conn.fetchval("SELECT COUNT(*) FROM chapter_images")
+
+    return {
+        "num_mangas": num_mangas,
+        "num_chapters": num_chapters,
+        "num_chapter_images": num_chapter_images
     }

@@ -18,7 +18,7 @@ async def get_manga_requests(
     order: Optional[Literal['ASC', 'DESC']] = Query(default='DESC'),
     conn: Connection = Depends(get_db)
 ) -> Pagination[MangaRequest]:
-    return manga_request_model.get_manga_requests(limit, offset, order, conn)
+    return await manga_request_model.get_manga_requests(limit, offset, order, conn)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=MangaRequest)

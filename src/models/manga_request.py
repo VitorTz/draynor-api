@@ -18,7 +18,7 @@ async def get_manga_requests(
     rows = await conn.fetch(
         f"""
             SELECT
-                if,
+                id,
                 title,
                 message,
                 created_at
