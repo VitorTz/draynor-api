@@ -2,7 +2,7 @@ from asyncpg import Connection
 from src.schemas.manga import Manga, MangaCreate, MangaUpdate
 from src.schemas.general import Pagination, IntId
 from src.schemas.genre import Genre
-from src.schemas.manga_page import MangaPageData, MangaPageChapter
+from src.schemas.manga_page import MangaPageData, MangaPageChapter, MangaCarouselItem
 from src.schemas.user import User
 from src.schemas.author import MangaAuthor
 from src.db import db_count
@@ -540,6 +540,70 @@ async def get_mangas_page_data(limit: int, offset: int, conn: Connection) -> Pag
         offset=offset,
         results=results
     )
+
+
+async def get_manga_carousel_list(limit: int, offset: int, conn: Connection):
+    total = await db_count("manga_page_view", conn)
+
+    rows = await conn.fetch(
+        """
+            SELECT
+                id,
+                title,
+                descr,
+                status,
+                color,
+                cover_image_url,
+                mal_url,
+                updated_at,
+                created_at,
+                genres,
+                authors
+            FROM
+                manga_page_view
+            ORDER BY
+                RANDOM()
+            LIMIT
+                $1
+            OFFSET
+                $2
+        """,
+        limit,
+        offset
+    )
+
+    results = []
+
+    for row in rows:
+        manga = Manga(
+            id=row['id'],
+            title=row['title'],
+            descr=row['descr'],
+            status=row['status'],
+            color=row['color'],
+            cover_image_url=row['cover_image_url'],
+            mal_url=row['mal_url'],
+            updated_at=row['updated_at'],
+            created_at=row['created_at']
+        )
+        genres = json.loads(row['genres'])
+        authors = json.loads(row['authors'])
+        results.append(
+            MangaCarouselItem(
+                manga=manga,
+                genres=[Genre(**dict(row)) for row in genres],
+                authors=[MangaAuthor(**dict(row)) for row in authors],
+            )
+        )
+
+    return Pagination[MangaCarouselItem](
+        totalt=total,
+        limit=limit,
+        offset=offset,
+        results=results
+    )
+
+
 
 async def refresh_manga_page_view(conn: Connection) -> None:
     await conn.execute("SELECT perform_refresh_manga_page_view()")

@@ -108,6 +108,7 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 if Constants.IS_PRODUCTION:
     origins = [
         "https://vitortz.github.io",
@@ -115,8 +116,10 @@ if Constants.IS_PRODUCTION:
     ]
 else:
     origins = [
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "http://localhost:5173/draynor-client"
     ]
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -21,3 +21,10 @@ class MangaPageData(BaseModel):
     authors: List[MangaAuthor]
     reading_status: Optional[ReadingStatusLiteral]
     chapters: List[MangaPageChapter]
+
+
+class MangaCarouselItem(BaseModel):
+
+    manga: Manga    
+    genres: List[Genre]
+    authors: List[MangaAuthor]

@@ -1,6 +1,6 @@
 from src.schemas.manga import Manga
 from src.schemas.general import Pagination, IntId
-from src.schemas.manga_page import MangaPageData
+from src.schemas.manga_page import MangaPageData, MangaCarouselItem
 from src.schemas.user import User
 from src.schemas.genre import Genre
 from src.models import genre as genre_model
@@ -60,8 +60,8 @@ async def get_mangas_page_data(
     limit: int = Query(default=64, ge=0, le=64),
     offset: int = Query(default=0, ge=0),
     conn: Connection = Depends(get_db)
-) -> Pagination[MangaPageData]:
-    return await manga_model.get_mangas_page_data(limit, offset, conn)
+) -> Pagination[MangaCarouselItem]:
+    return await manga_model.get_manga_carousel_list(limit, offset, conn)
 
 
 @router.get("/latest", status_code=status.HTTP_200_OK, response_model=Pagination[Manga])
