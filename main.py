@@ -13,6 +13,7 @@ from src.routes import library
 from src.routes import collections
 from src.routes import manga_request
 from src.routes import bug_reports
+from src.routes import comments
 from src.routes import manga
 from src.routes import admin
 from src.routes import admin_users
@@ -149,6 +150,7 @@ app.include_router(library.router, prefix='/api/v1/library', tags=["library"])
 app.include_router(collections.router, prefix='/api/v1/collections', tags=["collections"])
 app.include_router(manga_request.router, prefix='/api/v1/manga/requests', tags=["manga_requests"])
 app.include_router(bug_reports.router, prefix='/api/v1/reports/bugs', tags=["bug_reports"])
+app.include_router(comments.router, prefix='/api/v1/comments', tags=["comments"])
 app.include_router(admin.router, prefix='/api/v1/admin', tags=["admin_core"])
 app.include_router(admin_users.router, prefix='/api/v1/admin/users', tags=["admin_users"])
 app.include_router(admin_authors.router, prefix='/api/v1/admin/authors', tags=["admin_authors"])

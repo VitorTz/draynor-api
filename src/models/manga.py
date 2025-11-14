@@ -542,23 +542,13 @@ async def get_mangas_page_data(limit: int, offset: int, conn: Connection) -> Pag
     )
 
 
-async def get_manga_carousel_list(limit: int, offset: int, conn: Connection):
-    total = await db_count("manga_page_view", conn)
+async def get_manga_carousel_list(limit: int, offset: int, conn: Connection) -> Pagination[MangaCarouselItem]:
+    total: int = await db_count("manga_page_view", conn)
 
     rows = await conn.fetch(
         """
             SELECT
-                id,
-                title,
-                descr,
-                status,
-                color,
-                cover_image_url,
-                mal_url,
-                updated_at,
-                created_at,
-                genres,
-                authors
+                *
             FROM
                 manga_page_view
             ORDER BY
@@ -585,24 +575,23 @@ async def get_manga_carousel_list(limit: int, offset: int, conn: Connection):
             mal_url=row['mal_url'],
             updated_at=row['updated_at'],
             created_at=row['created_at']
-        )
+        )        
         genres = json.loads(row['genres'])
         authors = json.loads(row['authors'])
         results.append(
             MangaCarouselItem(
                 manga=manga,
                 genres=[Genre(**dict(row)) for row in genres],
-                authors=[MangaAuthor(**dict(row)) for row in authors],
+                authors=[MangaAuthor(**dict(row)) for row in authors]                
             )
         )
 
     return Pagination[MangaCarouselItem](
-        totalt=total,
+        total=total,
         limit=limit,
         offset=offset,
         results=results
     )
-
 
 
 async def refresh_manga_page_view(conn: Connection) -> None:
