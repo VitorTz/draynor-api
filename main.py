@@ -33,7 +33,6 @@ from src.monitor import get_monitor, periodic_update
 from src.cache import RedisLikeCache
 from src import db
 from src import middleware
-from src import globals
 from src import util
 from src.cloudflare import CloudflareR2Bucket
 from src.models import log as log_model
@@ -108,7 +107,6 @@ app = FastAPI(
 )
 
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 if Constants.IS_PRODUCTION:
@@ -131,6 +129,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 def read_root():
@@ -168,10 +168,10 @@ app.include_router(admin_manga_blacklist.router, prefix='/api/v1/admin/blacklist
 app.include_router(admin_logs.router, prefix='/api/v1/admin/logs', tags=["admin_logs"])
 
 
+########################## MIDDLEWARES ##########################
+
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-
-########################## MIDDLEWARES ##########################
 
 @app.middleware("http")
 async def http_middleware(request: Request, call_next):

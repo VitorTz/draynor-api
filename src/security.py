@@ -6,17 +6,20 @@ from src.schemas.user import User, UserLoginAttempt
 from src.schemas.token import SessionToken, Token
 from src.constants import Constants
 from passlib.context import CryptContext
-from typing import Optional, Union
 from asyncpg import Connection
+from typing import Optional
 from src.db import get_db
 from src import util
-import hashlib
 import uuid
 import jwt
 
 
 oauth2_admin_scheme = OAuth2PasswordBearer(tokenUrl="/admin/login")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+pwd_context = CryptContext(
+    schemes=["argon2"],     
+    deprecated="auto"
+)
 
 
 def create_admin_token():
@@ -53,9 +56,12 @@ def hash_password(password: str) -> bytes | None:
     return pwd_context.hash(password.strip()).encode()
 
 
-def verify_password(password: str, password_hash: bytes) -> bool:
-    if not password: return False
-    return password_hash == hashlib.md5(password.strip().encode()).digest()
+def verify_password(plain_password: str, hashed_password: bytes) -> bool:
+    if not plain_password: return False
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        return False
 
 
 def create_new_refresh_token_expires_time() -> datetime:

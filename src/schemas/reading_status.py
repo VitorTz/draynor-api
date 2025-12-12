@@ -4,7 +4,14 @@ from uuid import UUID
 from datetime import datetime
 
 
-ReadingStatusLiteral = Literal['Reading', 'Completed', 'On Hold', 'Dropped', 'Plan to Read', 'Rereading']
+ReadingStatusLiteral = Literal[
+    'Reading', 
+    'Completed', 
+    'On Hold', 
+    'Dropped', 
+    'Plan to Read', 
+    'Rereading'
+]
 
 
 class ReadingStatusCreate(BaseModel):

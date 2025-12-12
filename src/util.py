@@ -5,6 +5,11 @@ from datetime import datetime, timezone
 from src.schemas.general import ClientInfo
 from typing import Optional, Any
 from PIL import Image
+from threading import Lock
+from functools import wraps
+from io import BytesIO
+from PIL import Image
+import colorsys
 import unicodedata
 import requests
 import uuid
@@ -155,3 +160,84 @@ def normalize_to_url(text: str) -> str:
         text = "item"
 
     return text
+
+
+def singleton(cls):
+    instances = {}
+    lock = Lock()
+
+    @wraps(cls)
+    def get_instance(*args, **kwargs):        
+        if cls not in instances:
+            with lock:                
+                if cls not in instances:
+                    instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    
+    return get_instance
+
+
+def get_manga_dominant_color(image_url: str) -> str:
+    
+    try:
+        # 1. Download da imagem (timeout para não travar a API)
+        response = requests.get(image_url, timeout=5)
+        response.raise_for_status()
+        
+        # 2. Abre a imagem e converte para RGB (evita problemas com PNGs transparentes)
+        img = Image.open(BytesIO(response.content)).convert("RGB")
+        
+        # 3. Redimensiona para acelerar o processamento (100x100 é suficiente)
+        img.thumbnail((100, 100))
+        
+        # 4. Quantização: Reduz a imagem para apenas 10 cores principais
+        # Isso agrupa pixels similares
+        paletted = img.quantize(colors=10, method=2) 
+        
+        # Pega a paleta (lista de RGBs: [r, g, b, r, g, b...])
+        palette = paletted.getpalette()
+        
+        # Conta a frequência de cada cor
+        color_counts = paletted.getbbox()
+        if not color_counts:
+             # Fallback se a imagem for vazia ou sólida
+             return "#333333"
+
+        # Recupera as cores mais frequentes
+        # getcolors retorna uma lista de tuplas (frequencia, indice_da_cor)
+        colors = paletted.getcolors()
+        
+        best_color = (0, 0, 0)
+        max_score = -1
+
+        for count, index in colors:
+            
+            r = palette[index * 3]
+            g = palette[index * 3 + 1]
+            b = palette[index * 3 + 2]
+                        
+            h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+            
+            if v < 0.15: continue 
+            if v > 0.95 and s < 0.10: continue
+            
+            score = (s * 3.0) + (v * 1.0) + (count / (100*100) * 0.5)
+            
+            if score > max_score:
+                max_score = score
+                best_color = (r, g, b)
+
+        # Se nenhuma cor passou no filtro (ex: mangá preto e branco), pega a mais frequente mesmo
+        if max_score == -1:
+             # Pega a cor mais frequente (última da lista ordenada pelo sort padrão do getcolors)
+             top_index = sorted(colors, reverse=True)[0][1]
+             r = palette[top_index * 3]
+             g = palette[top_index * 3 + 1]
+             b = palette[top_index * 3 + 2]
+             best_color = (r, g, b)
+
+        # Retorna em Hex
+        return '#{:02x}{:02x}{:02x}'.format(*best_color)
+    except Exception as e:
+        print(f"Erro ao extrair cor da imagem {image_url}: {e}")
+        raise e

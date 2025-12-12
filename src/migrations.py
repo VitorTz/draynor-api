@@ -1,8 +1,7 @@
+from src.cloudflare import CloudflareR2Bucket
 from asyncpg import Connection
 from pathlib import Path
-from datetime import datetime
 from src import util
-from src.cloudflare import CloudflareR2Bucket
 from typing import Any
 import uuid
 import csv
@@ -239,3 +238,25 @@ async def add_images(conn: Connection) -> None:
                 print(e)
                 print(image)
                 return
+            
+
+            
+async def update_colors(conn: Connection):
+    mangas = read_json("res/image.json")
+    params = []
+    for manga in mangas:
+        color = util.get_manga_dominant_color(manga['cover_image_url'])
+        params.append((color, manga['id']))
+        print(color, manga['id'])
+        
+    await conn.executemany(
+        """
+            UPDATE
+                mangas
+            SET
+                color = $1
+            WHERE
+                id = $2
+        """,
+        params
+    )
