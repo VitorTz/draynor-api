@@ -30,7 +30,7 @@ class Constants:
 
     MAX_BODY_SIZE = 20 * 1024 * 1024
     MAX_REQUESTS = 300 if os.getenv("ENV", "DEV") == "PROD" else 999_999_999
-    WINDOW = 30
+    WINDOW = 60
 
     LOGIN_MAX_FAILED_ATTEMPTS = 10
     ACCESS_TOKEN_EXPIRE_HOURS = 24

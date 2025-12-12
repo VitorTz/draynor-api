@@ -30,6 +30,7 @@ from src.routes import admin_bug_reports
 from src.routes import admin_manga_request
 from src.routes import admin_manga_blacklist
 from src.monitor import get_monitor, periodic_update
+from src.cache import RedisLikeCache
 from src import db
 from src import middleware
 from src import globals
@@ -218,32 +219,32 @@ async def http_middleware(request: Request, call_next):
     # Rate limit check
     identifier = util.get_client_identifier(request)
     key = f"rate_limit:{identifier}"
-    
-    pipe = globals.globals_get_redis_client().pipeline()
-    pipe.incr(key)
-    pipe.expire(key, Constants.WINDOW)
-    results = await pipe.execute()
-    
-    current = results[0]
-    ttl = await globals.globals_get_redis_client().ttl(key)
-    
-    if current > Constants.MAX_REQUESTS:    
+
+    cache = RedisLikeCache()
+
+    current = cache.get(key)
+    new_value = (current + 1) if current else 1
+
+    if new_value > Constants.MAX_REQUESTS:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={
                 "error": "Too many requests",
-                "message": f"Rate limit exceeded. Try again in {ttl} seconds.",
-                "retry_after": ttl,
+                "message": "Rate limit exceeded. Try again in 60 seconds.",
+                "retry_after": f"{Constants.WINDOW}",
                 "limit": Constants.MAX_REQUESTS,
                 "window": Constants.WINDOW
             },
             headers={
-                "Retry-After": str(ttl),
+                "Retry-After": f"{Constants.WINDOW}",
                 "X-RateLimit-Limit": str(Constants.MAX_REQUESTS),
                 "X-RateLimit-Remaining": "0",
-                "X-RateLimit-Reset": str(ttl)
+                "X-RateLimit-Reset": f"{Constants.WINDOW}"
             }
         )
+
+    cache.set(key, new_value, Constants.WINDOW)
+    current = new_value
     
     # Headers
     response: Response = await call_next(request)
@@ -251,7 +252,7 @@ async def http_middleware(request: Request, call_next):
     remaining = max(Constants.MAX_REQUESTS - current, 0)
     response.headers["X-RateLimit-Limit"] = str(Constants.MAX_REQUESTS)
     response.headers["X-RateLimit-Remaining"] = str(remaining)
-    response.headers["X-RateLimit-Reset"] = str(ttl)
+    response.headers["X-RateLimit-Reset"] = "60"
         
     middleware.add_security_headers(request, response)
     response_time_ms = (time.perf_counter() - start_time) * 1000
