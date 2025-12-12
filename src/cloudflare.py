@@ -62,10 +62,11 @@ class CloudflareR2Bucket:
             **self.credentials,
         )
 
-    async def upload_file(self, key: str, file_path: str, content_type: Optional[str] = None):
+    async def upload_file(self, key: str, file_path: str, content_type: Optional[str] = None) -> str:
         async with await self._get_client() as s3:
             extra = {"ContentType": content_type} if content_type else {}
             await s3.upload_file(file_path, self.bucket_name, key, ExtraArgs=extra)
+            return self.prefix + key
 
     async def upload_bytes(self, key: str, data: io.BytesIO, content_type: Optional[str] = None) -> str:
         async with await self._get_client() as s3:
