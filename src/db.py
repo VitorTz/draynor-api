@@ -19,7 +19,6 @@ async def db_init() -> None:
     db_pool = await create_pool(database_url, min_size=5, max_size=20, statement_cache_size=0)
     async with db_pool.acquire() as conn:
         await util.execute_sql_file(Path("db/schema.sql"), conn)        
-        await migrations.add_images(conn)
 
 
 def db_instance() -> psycopg.Connection:
