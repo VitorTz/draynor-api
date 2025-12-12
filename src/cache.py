@@ -46,21 +46,17 @@ class RedisLikeCache:
             serialized = pickle.dumps(value)
             size = len(serialized)
             self.counter += 1
-
-            # If key exists, remove its size before replacing
+            
             if key in self.cache:
                 self._evict_key(key)
-
-            # Add new item
+            
             self.cache[key] = {
                 "value": serialized,
                 "expires": expires,
                 "size": size,
                 "ts": self.counter
             }
-            self.current_size += size
-
-            # Enforce max size
+            self.current_size += size            
             self._evict_oldest_until_fit()
 
     def get(self, key):
