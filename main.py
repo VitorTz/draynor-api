@@ -45,6 +45,16 @@ import contextlib
 import os
 
 
+if Constants.IS_PRODUCTION:
+    origins = [
+        "https://draynor-mangas.squareweb.app"
+    ]
+else:
+    origins = [
+        "http://localhost:5173",
+        "http://localhost:5173/draynor-client"
+    ]
+
 
 async def background_refresh_task():
     while True:
@@ -74,7 +84,7 @@ async def lifespan(app: FastAPI):
 
     # [Cloudflare]
     app.state.r2 = await CloudflareR2Bucket.get_instance()
-
+    print("[CORS] [ORIGINS]", origins)
     print(f"[{Constants.API_NAME} STARTED]")
 
     yield
@@ -106,20 +116,6 @@ app = FastAPI(
     version=Constants.API_VERSION,
     lifespan=lifespan
 )
-
-
-
-
-if Constants.IS_PRODUCTION:
-    origins = [
-        "https://vitortz.github.io",
-        "https://vitortz.github.io/draynor-client"
-    ]
-else:
-    origins = [
-        "http://localhost:5173",
-        "http://localhost:5173/draynor-client"
-    ]
 
 
 app.add_middleware(
