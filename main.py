@@ -47,8 +47,8 @@ import os
 
 if Constants.IS_PRODUCTION:
     origins = [
-        "https://draynor-mangas.squareweb.app/",
-        "https://vitortz.github.io/draynor-client/"
+        "https://draynor-mangas.squareweb.app",
+        "https://vitortz.github.io"
     ]
 else:
     origins = [
