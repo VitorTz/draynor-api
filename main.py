@@ -172,23 +172,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.middleware("http")
-async def http_middleware(request: Request, call_next):
-    if Constants.IS_PRODUCTION:
-        if request.method == "OPTIONS":
-            origin = request.headers.get("origin")
-            if origin in [
-                "https://vitortz.github.io",
-                "https://vitortz.github.io/draynor-client"
-            ]:
-                headers = {
-                    "Access-Control-Allow-Origin": "https://vitortz.github.io",
-                    "Access-Control-Allow-Credentials": "true",
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                    "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers", "*"),
-                }
-                return Response(status_code=200, headers=headers)
-            return Response(status_code=403)
-     
+async def http_middleware(request: Request, call_next): 
     if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
         response = await call_next(request)
         return response
