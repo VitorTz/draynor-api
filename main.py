@@ -38,6 +38,7 @@ from src.cloudflare import CloudflareR2Bucket
 from src.models import log as log_model
 from src.models import manga as manga_model
 from src.constants import Constants
+import uvicorn
 import time
 import asyncio
 import contextlib
@@ -308,3 +309,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Internal server error"
     )
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=80)
