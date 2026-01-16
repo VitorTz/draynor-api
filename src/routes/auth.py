@@ -47,6 +47,8 @@ async def login(
     if Constants.IS_PRODUCTION and user_login_data.locked_until and user_login_data.locked_until > datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Account locked until {user_login_data.locked_until}")
     
+    print(user_login.password, user_login_data.p_hash)
+    
     if not security.verify_password(user_login.password, user_login_data.p_hash):
         user_login_data = await user_model.register_failed_login_attempt(user_login_data, conn)
         if user_login_data.login_attempts >= Constants.LOGIN_MAX_FAILED_ATTEMPTS:
@@ -64,7 +66,7 @@ async def login(
         user_login_data.id,
         session_token.refresh_token,
         util.get_client_info(request),
-        conn        
+        conn
     )
 
     await user_model.update_user_last_login_at(user_login_data.id, conn)
@@ -86,7 +88,8 @@ async def login(
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def signup(new_user: UserCreate, conn: Connection = Depends(get_db)):
     try:
-        await user_model.create_user(new_user, conn)
+        hashed_password: bytes = security.hash_password(new_user.password)
+        await user_model.create_user(new_user, hashed_password, conn)
         return Response(status_code=status.HTTP_201_CREATED)
     except UniqueViolationError as e:
         if 'username' in str(e):
@@ -105,7 +108,11 @@ async def get_manager_active_sessions(
 
 
 @router.post("/refresh", response_model=User)
-async def refresh_token_manager(refresh_token: Optional[str] = Cookie(default=None), conn: Connection = Depends(get_db)):
+async def refresh_token_manager(
+    response: Response,
+    refresh_token: Optional[str] = Cookie(default=None), 
+    conn: Connection = Depends(get_db)
+):
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     
@@ -123,10 +130,8 @@ async def refresh_token_manager(refresh_token: Optional[str] = Cookie(default=No
     )
 
     user: User = await user_model.get_user(user.id, conn)
-    response = JSONResponse(user.model_dump(mode='json'))
     security.set_session_token_cookie(response, session_token)
-
-    return response
+    return user
 
 
 @router.post("/logout")

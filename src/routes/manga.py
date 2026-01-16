@@ -67,11 +67,7 @@ async def get_manga_page_data(
     user: Optional[User] = Depends(get_user_from_token_if_exists),
     conn: Connection = Depends(get_db)
 ) -> MangaPageData:    
-    return await cache.get_or_compute(
-        key=f"page:{manga_id}",
-        fetch_func=lambda: manga_model.get_manga_page_data(manga_id, user, conn),
-        response_model=MangaPageData
-    )
+    return await manga_model.get_manga_page_data(manga_id, user, conn)
 
 
 @router.get("/page/list")
@@ -84,7 +80,8 @@ async def get_mangas_page_data(
     return await cache.get_or_compute(
         key=f"page_list:{limit}:{offset}",
         fetch_func=lambda: manga_model.get_manga_carousel_list(limit, offset, conn),
-        response_model=Pagination[MangaCarouselItem]
+        response_model=Pagination[MangaCarouselItem],
+        ttl=300
     )
     
 
@@ -98,7 +95,8 @@ async def get_latest_mangas(
     return await cache.get_or_compute(
         key=f"latest:{limit}:{offset}",
         fetch_func=lambda: manga_model.get_latest_mangas(limit, offset, conn),
-        response_model=Pagination[Manga]
+        response_model=Pagination[Manga],
+        ttl=300
     )
     
 

@@ -5,7 +5,8 @@ from src.models import user as user_model
 from src.schemas.user import User, UserLoginAttempt
 from src.schemas.token import SessionToken, Token
 from src.constants import Constants
-from passlib.context import CryptContext
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from asyncpg import Connection
 from typing import Optional
 from src.db import get_db
@@ -16,9 +17,14 @@ import jwt
 
 oauth2_admin_scheme = OAuth2PasswordBearer(tokenUrl="/admin/login")
 
-pwd_context = CryptContext(
-    schemes=["argon2"],     
-    deprecated="auto"
+
+ph = PasswordHasher()
+
+
+CREDENTIALS_EXCEPTION = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
 )
 
 
@@ -51,25 +57,24 @@ def require_admin(token: str = Depends(oauth2_admin_scheme)):
     return True
 
 
-def hash_password(password: str) -> bytes | None:
-    if not password: return None
-    return pwd_context.hash(password.strip()).encode()
+def hash_password(password: str) -> bytes:
+    hashed_str = ph.hash(password)
+    return hashed_str.encode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: bytes) -> bool:
-    if not plain_password: return False
     try:
-        return pwd_context.verify(plain_password, hashed_password)
-    except Exception:
+        return ph.verify(hashed_password, plain_password)
+    except (VerifyMismatchError, InvalidHashError):
         return False
-
+    
 
 def create_new_refresh_token_expires_time() -> datetime:
     return datetime.now(timezone.utc) + timedelta(days=Constants.REFRESH_TOKEN_EXPIRE_DAYS)
 
 
 def create_new_access_token_expires_time() -> datetime:
-    return datetime.now(timezone.utc) + timedelta(hours=Constants.ACCESS_TOKEN_EXPIRE_HOURS)
+    return datetime.now(timezone.utc) + timedelta(minutes=Constants.ACCESS_TOKEN_EXPIRE_MINUTES)
 
 
 def create_refresh_token() -> Token:
@@ -80,9 +85,13 @@ def create_refresh_token() -> Token:
 
 
 def create_access_token(manager_id: uuid.UUID) -> Token:
-    expires_at: str = datetime.now(timezone.utc) + (timedelta(hours=Constants.ACCESS_TOKEN_EXPIRE_HOURS))
+    expires_at: str = datetime.now(timezone.utc) + (timedelta(minutes=Constants.ACCESS_TOKEN_EXPIRE_MINUTES))
+    data = {
+        "sub": str(manager_id), 
+        "exp": expires_at
+    }
     token: str = jwt.encode(
-        {"sub": str(manager_id), "exp": expires_at}, 
+        data,
         Constants.SECRET_KEY,
         algorithm=Constants.ALGORITHM
     )
@@ -106,12 +115,8 @@ async def get_user_from_token(
     access_token: Optional[str] = Cookie(default=None),
     conn: Connection = Depends(get_db)
 ) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    if access_token is None: raise credentials_exception
+    if access_token is None: 
+        raise CREDENTIALS_EXCEPTION
     
     try:
         payload = jwt.decode(
@@ -122,27 +127,21 @@ async def get_user_from_token(
         
         user_id: str = payload.get("sub")
         if user_id is None: 
-            raise credentials_exception
+            raise CREDENTIALS_EXCEPTION
     except Exception:
-        raise credentials_exception
+        raise CREDENTIALS_EXCEPTION
     
     user: Optional[User] = await user_model.get_user(user_id, conn)
     
     if user is None:
-        raise credentials_exception
+        raise CREDENTIALS_EXCEPTION
     
     return user
 
 
 async def require_user_login(access_token: Optional[str] = Cookie(default=None)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
     if access_token is None: 
-        raise credentials_exception
+        raise CREDENTIALS_EXCEPTION
     
     try:
         payload = jwt.decode(
@@ -152,9 +151,9 @@ async def require_user_login(access_token: Optional[str] = Cookie(default=None))
         )
         user_id: str = payload.get("sub")
         if user_id is None: 
-            raise credentials_exception
+            raise CREDENTIALS_EXCEPTION
     except Exception:
-        raise credentials_exception
+        raise CREDENTIALS_EXCEPTION
     
     if not await user_model.user_exists(user_id):
         raise HTTPException(

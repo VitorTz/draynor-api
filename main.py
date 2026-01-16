@@ -293,4 +293,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=80)
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=80, 
+        workers=4,
+        log_level="info"
+    )

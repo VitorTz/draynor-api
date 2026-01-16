@@ -213,7 +213,7 @@ async def update_user_last_login_at(user_id: str, conn: Connection):
 
 
 
-async def create_user(new_user: UserCreate, conn: Connection) -> User:
+async def create_user(new_user: UserCreate, hashed_password: bytes, conn: Connection) -> User:
     r = await conn.fetchrow(
         """
             INSERT INTO users (
@@ -222,7 +222,7 @@ async def create_user(new_user: UserCreate, conn: Connection) -> User:
                 p_hash
             )
             VALUES  
-                ($1, LOWER(TRIM($2)), decode(md5(TRIM($3)), 'hex'))
+                ($1, LOWER(TRIM($2)), $3)
             RETURNING
                 id,
                 username,
@@ -233,7 +233,7 @@ async def create_user(new_user: UserCreate, conn: Connection) -> User:
         """,
         new_user.username,
         new_user.email,
-        new_user.password
+        hashed_password
     )
 
     return User(**dict(r)) if r else None
@@ -267,7 +267,7 @@ async def get_user_by_refresh_token(refresh_token: str, conn: Connection) -> Opt
         """
             SELECT 
                 u.id,
-                u.usermame,
+                u.username,
                 u.email,
                 u.last_login_at,
                 u.created_at

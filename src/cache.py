@@ -3,7 +3,7 @@ from threading import Lock
 from threading import RLock
 from src.util import singleton
 from pydantic import BaseModel
-from typing import Callable, TypeVar, Any, Type
+from typing import Callable, TypeVar, Any, Type, Optional
 import pickle
 import time
 import sys
@@ -82,13 +82,15 @@ class RedisLikeCache:
 
 T = TypeVar("T", bound=BaseModel)
 
+
 @singleton
 class SizeBasedAPICache:
     
-    def __init__(self, max_memory_mb: float = 4.0):        
-        self.cache = OrderedDict()
+    def __init__(self, max_memory_mb: float = 4.0, default_ttl: int = 3600):        
+        self.cache = OrderedDict() 
         self.max_memory_bytes = int(max_memory_mb * 1024 * 1024)
         self.current_memory_usage = 0
+        self.default_ttl = default_ttl
         self.lock = Lock()
 
     def _get_deep_size(self, obj, seen=None):        
@@ -113,37 +115,52 @@ class SizeBasedAPICache:
         with self.lock:
             if key not in self.cache:
                 return None
+            
+            value, size, expiration_time = self.cache[key]
+            
+            # Check if the item has expired
+            if time.time() > expiration_time:
+                self.current_memory_usage -= size
+                del self.cache[key]
+                print(f"🕒 Item '{key}' expired and was removed.")
+                return None
                         
             self.cache.move_to_end(key)
-                        
-            return self.cache[key][0]
+            return value
 
-    def set(self, key: str, value):        
-        with self.lock:            
+    def set(self, key: str, value, ttl: Optional[int] = None):        
+        with self.lock:
+            # Determine expiration timestamp
+            expiration_ttl = ttl if ttl is not None else self.default_ttl
+            expiration_time = time.time() + expiration_ttl
+            
             item_size = self._get_deep_size(key) + self._get_deep_size(value)
             
             if item_size > self.max_memory_bytes:
-                print(f"⚠️ Item muito grande ({item_size} bytes). Não cacheado.")
+                print(f"⚠️ Item too large ({item_size} bytes). Not cached.")
                 return
             
+            # If key exists, subtract its size before updating
             if key in self.cache:
-                old_size = self.cache[key][1]
+                _, old_size, _ = self.cache[key]
                 self.current_memory_usage -= old_size
                 self.cache.move_to_end(key)
             
-            self.cache[key] = (value, item_size)
+            self.cache[key] = (value, item_size, expiration_time)
             self.current_memory_usage += item_size
             
+            # Evict LRU items if memory limit is exceeded
             while self.current_memory_usage > self.max_memory_bytes:                
-                evicted_key, (evicted_value, evicted_size) = self.cache.popitem(last=False)
+                evicted_key, (_, evicted_size, _) = self.cache.popitem(last=False)
                 self.current_memory_usage -= evicted_size                
-                print(f"🧹 Removendo '{evicted_key}' para liberar {evicted_size} bytes.")
+                print(f"🧹 Evicting '{evicted_key}' to free {evicted_size} bytes.")
                 
     async def get_or_compute(
         self, 
         key: str, 
         fetch_func: Callable[[], Any], 
-        response_model: Type[T]
+        response_model: Type[T],
+        ttl: Optional[int] = 300
     ) -> T:                
         cached_data = self.get(key)
         if cached_data:
@@ -151,15 +168,16 @@ class SizeBasedAPICache:
             return response_model(**cached_data)
         
         result = await fetch_func()
-        self.set(key, result.model_dump(mode='json'))
+        # Save to cache with the specified TTL
+        self.set(key, result.model_dump(mode='json'), ttl=ttl)
         return result
 
     def info(self):        
         with self.lock:
             mb_used = self.current_memory_usage / (1024 * 1024)
             return {
-                "itens": len(self.cache),
-                "uso_bytes": self.current_memory_usage,
-                "uso_mb": round(mb_used, 4),
+                "items": len(self.cache),
+                "usage_bytes": self.current_memory_usage,
+                "usage_mb": round(mb_used, 4),
                 "max_mb": self.max_memory_bytes / (1024 * 1024)
             }
